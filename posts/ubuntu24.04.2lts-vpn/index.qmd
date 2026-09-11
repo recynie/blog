@@ -1,0 +1,45 @@
+---
+title: Ubuntu24.04上配置VPN的记录
+date: '2025-09-06'
+date-modified: '2025-09-06'
+description: 在Ubuntu24.04.2LTS上配置可用VPN的记录。尝试多种代理软件，并对其进行简单的横向比较。
+categories:
+- softwares
+- ubuntu
+- vpn
+---
+在Ubuntu24.04.2LTS上安装vpn软件（代理软件）的记录。
+目标：支持订阅连接（clash/v2ray/sing-box）、能使用TUN模式代理全部流量、自动更新订阅、有GUI或WebUI。
+尝试的软件列表
+- Clash-verge-rev/Clash-verge
+    - TUN模式无效，原因未知
+    - 有时会自动打开轻量模式，疑似由“静默启动”导致
+- Clash-nyapatsu
+    - deb格式不支持ubuntu24.04（由于tauri不支持），依赖项不满足
+    - appimage格式不支持服务模式或TUN模式，因为这两种模式需要做系统修改，不符合AppImage的要求
+- Sing-box
+    - 无GUI
+- GUI.for.Singbox
+    - 无法启动代理（可能因为找不到某些文件夹）
+- dae
+    - 无GUI
+    - 文档复杂
+- NekoRay/NekoBox
+    - 停止维护
+    - 文档不全
+- V2rayA
+
+最终选择V2rayA，相比我使用过的clash-for-windows, clash-nyapatsu, clash-verge-rev，v2raya的优缺点：
+- 优点
+    - 使用服务(systemd)自启动，启动后无托盘图标
+    - 安装指南较详细
+    - 设置较简单，容易上手，默认设置可工作
+    - 使用webui：不需要gui依赖项，可在远程主机上安装使用
+    - 可以选择多个节点，每个一段时间自动选择它们中延迟最小者。替代了在clash中测试延迟、选择最小延迟节点的操作。
+    - trasparent proxy使用简单。相比之下，clash系列的TUN相对不稳定
+    - 可选择要代理的流量：全部、除cn后缀、GFWlist内。clash系列似乎的这种功能依赖于订阅提供的规则，不便修改
+    - 可选择启动时更新订阅或间隔更新订阅
+- 缺点
+    - 可配置项较少
+    - 说明文档仍在撰写
+        - 缺少的文档多为基础内容，较高级用法（例如防止DNS污染、自定义分流）的文档反而相对较全。可能基础内容比较直观，因此优先级较低。

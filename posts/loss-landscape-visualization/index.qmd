@@ -1,0 +1,255 @@
+---
+title: "可视化损失地形：神经网络的训练轨迹"
+date: 2026-09-11
+categories: [Machine Learning, Optimization, visualization, aigc]
+description: "在浏览器中训练一个小型神经网络，观察损失曲线与参数轨迹，交互探索局部平面融合得到的二维和三维损失地形。"
+engine: marimo
+from: markdown
+execute:
+  enabled: true
+format:
+  html:
+    css: article.css
+resources:
+  - public/**
+pyproject: |
+  requires-python = ">=3.11"
+  dependencies = ["marimo==0.24.0", "numpy>=2,<3"]
+---
+
+损失曲线记录训练误差随迭代的变化。损失地形（loss landscape）进一步展示参数位置与损失之间的关系，让我们观察优化轨迹如何穿过平坦区域、沿谷地移动。
+
+本文使用一个只有 31 个参数的小型神经网络拟合一维函数。你可以调整目标函数、学习率和随机种子，观察训练曲线与轨迹的变化，再通过二维和三维视图探索轨迹周围的损失结构。地形可视化采用局部平面融合方法，参考 Ziming Liu 的 [Seeing sticky plateau](https://kindxiaoming.github.io/blog/2026/loss-visualization-1/)。
+
+::: {.callout-note}
+### 在浏览器中计算
+
+训练与地形计算均在浏览器中运行，由 [quarto-marimo](https://github.com/marimo-team/quarto-marimo) 和 Pyodide 提供 Python 环境。首次打开需要联网加载运行时和依赖，请等待加载完成再提交参数。如果出现 **Failed to load marimo runtime** 或 `RPC request timed out`，可稍后刷新。初始图表是构建时生成的静态结果；提交参数后结果更新，表示运行时已就绪。
+:::
+
+```python {.marimo}
+#| include: false
+#| error: false
+import marimo as mo
+import numpy as np
+import json
+import html
+```
+
+## 1. 训练一个小型神经网络
+
+网络结构为 `[1, 10, 1]`，隐藏层使用 SiLU 激活函数，包含 31 个可训练参数。输入为从 $[-1, 1]$ 均匀采样的 1,000 个点，标签由所选目标函数生成。Adam 优化器最小化这些样本上的均方误差（MSE）：
+
+$$
+L(\theta) = \frac{1}{N}\sum_{i=1}^{N}\left(f_\theta(x_i)-y_i\right)^2.
+$$
+
+改变目标函数或学习率，点击 **训练 / Train** 应用参数。表单只在提交时触发重新训练；首次加载使用默认配置。
+
+```python {.marimo}
+#| error: false
+training = mo.md("{task}\n\n{lr}\n\n{steps}\n\n{seed}").batch(
+    task=mo.ui.dropdown(["x", "x²", "x³", "sin(x)"], value="x", label="目标函数", full_width=True),
+    lr=mo.ui.number(.00001, 1, value=.01, step=.00001, label="学习率", full_width=True),
+    steps=mo.ui.number(20, 1000, value=201, step=1, label="训练步数", full_width=True),
+    seed=mo.ui.number(0, 999999, value=42, step=1, label="随机种子", full_width=True),
+).form(submit_button_label="训练 / Train")
+training
+```
+
+```python {.marimo}
+#| include: false
+#| error: false
+# Copied from loss-landscape-visualization/landscape.py; only the NumPy import is shared with the first cell.
+"""NumPy reproduction of Ziming Liu's local-plane blending (float64)."""
+
+TASKS = {"x": lambda x: x, "x²": lambda x: x*x,
+         "x³": lambda x: x**3, "sin(x)": np.sin}
+
+
+def predict(w, x):
+    """Parameters follow Linear(1,10), Linear(10,1) PyTorch flatten order."""
+    w = np.asarray(w)
+    z = x[..., None] * w[..., None, :10] + w[..., None, 10:20]
+    s = np.exp(-np.logaddexp(0, -z))
+    return np.sum(z*s*w[..., None, 20:30], axis=-1) + w[..., 30, None]
+
+
+def loss_grad(w, x, y):
+    z = x[:, None]*w[:10] + w[10:20]
+    s = np.exp(-np.logaddexp(0, -z))
+    h = z*s
+    err = h@w[20:30] + w[30] - y
+    d = 2*err/len(x)
+    dz = d[:, None]*w[20:30]*s*(1+z*(1-s))
+    return float(np.mean(err**2)), np.r_[np.sum(dz*x[:, None], axis=0),
+                                        dz.sum(axis=0), h.T@d, d.sum()]
+
+
+def train(task="x", lr=0.01, steps=201, seed=42, samples=1000):
+    if task not in TASKS or not np.isfinite(lr) or not 0 < lr <= 1:
+        raise ValueError("Unknown task or learning rate outside (0, 1].")
+    if not isinstance(steps, int) or not 2 <= steps <= 5000 or samples < 2:
+        raise ValueError("Training steps must be an integer in [2,5000]; samples >= 2.")
+    rng = np.random.default_rng(seed)
+    x = rng.uniform(-1, 1, samples)
+    y = TASKS[task](x)
+    w = np.r_[rng.uniform(-1, 1, 20), rng.uniform(-1/np.sqrt(10), 1/np.sqrt(10), 11)]
+    trajectory = [w.copy()]
+    losses = [loss_grad(w, x, y)[0]]
+    m, v = np.zeros(31), np.zeros(31)
+    for t in range(1, steps+1):
+        _, g = loss_grad(w, x, y)
+        m = .9*m+.1*g
+        v = .999*v+.001*g*g
+        w = w-lr*(m/(1-.9**t))/(np.sqrt(v/(1-.999**t))+1e-8)
+        loss = loss_grad(w, x, y)[0]
+        if not np.isfinite(loss) or not np.isfinite(w).all():
+            raise ValueError(f"Non-finite training state at step {t}; reduce learning rate.")
+        trajectory.append(w.copy())
+        losses.append(loss)
+    return np.array(trajectory), np.array(losses), x, y
+
+
+def local_axes(center, previous, older):
+    velocity = center-previous
+    acceleration = velocity-(previous-older)
+    norm = np.linalg.norm(velocity)
+    if norm < 1e-12:
+        raise ValueError("Degenerate local velocity")
+    e1 = velocity/norm
+    orthogonal = acceleration-(acceleration@e1)*e1
+    norm = np.linalg.norm(orthogonal)
+    if norm < 1e-12:
+        raise ValueError("Degenerate local acceleration")
+    return np.array([e1, orthogonal/norm])
+
+
+def blend(W, x, y, k=10, sigma=.1, stride=10, resolution=40, cap=1.0):
+    if any(not isinstance(a, int) for a in (k, stride, resolution)):
+        raise ValueError("k, stride and grid resolution must be integers.")
+    if k < 1 or 2*k >= len(W) or stride < 1 or not 8 <= resolution <= 100:
+        raise ValueError("Require 1 <= 2k <= training steps, stride >= 1, grid in [8,100].")
+    if not np.isfinite(sigma) or sigma <= 0 or not np.isfinite(cap) or cap <= 0:
+        raise ValueError("sigma and loss cap must be finite and positive.")
+    mean = W.mean(axis=0)
+    _, singular, basis = np.linalg.svd(W-mean, full_matrices=False)
+    if singular[1] < 1e-12:
+        raise ValueError("Trajectory has fewer than two independent PCA directions.")
+    basis = basis[:2]
+    pc = (W-mean)@basis.T
+    lo, hi = pc.min(axis=0), pc.max(axis=0)
+    pad = .2*(hi-lo)
+    axes = [np.linspace(lo[i]-pad[i], hi[i]+pad[i], resolution) for i in range(2)]
+    xx, yy = np.meshgrid(*axes)
+    query = np.column_stack([xx.ravel(), yy.ravel()])
+    high = mean+query@basis
+    indices, frames, skipped = [], [], []
+    for t in range(2*k, len(W), stride):
+        try:
+            frames.append(local_axes(W[t], W[t-k], W[t-2*k]))
+            indices.append(t)
+        except ValueError:
+            skipped.append(t)
+    if not indices:
+        raise ValueError("All sampled local planes are degenerate; change k or training configuration.")
+    distances = np.sum((query[:, None, :]-pc[indices][None, :, :])**2, axis=-1)
+    # Subtract nearest squared distance before exponentiation: same normalized
+    # Gaussian weights, with no all-zero underflow at small sigma.
+    with np.errstate(over="ignore"):
+        weights = np.exp(-.5*((distances-distances.min(axis=1, keepdims=True))/sigma)/sigma)
+    weights /= weights.sum(axis=1, keepdims=True)
+    values = np.zeros(len(query))
+    for i, (t, frame) in enumerate(zip(indices, frames)):
+        local = W[t]+((high-W[t])@frame.T)@frame
+        for start in range(0, len(query), 64):
+            stop = start+64
+            losses = np.mean((predict(local[start:stop], x)-y)**2, axis=-1)
+            if not np.isfinite(losses).all():
+                raise ValueError("Non-finite local loss before display clipping.")
+            values[start:stop] += weights[start:stop, i]*np.minimum(losses, cap)
+    grid = values.reshape(resolution, resolution)
+    # Bilinear grid height, matching Colab's 3D marker semantics.
+    u = (pc[:, 0]-axes[0][0])/(axes[0][-1]-axes[0][0])*(resolution-1)
+    v = (pc[:, 1]-axes[1][0])/(axes[1][-1]-axes[1][0])*(resolution-1)
+    a, b = np.minimum(u.astype(int), resolution-2), np.minimum(v.astype(int), resolution-2)
+    du, dv = u-a, v-b
+    heights = ((1-du)*(1-dv)*grid[b,a]+du*(1-dv)*grid[b,a+1]
+               +(1-du)*dv*grid[b+1,a]+du*dv*grid[b+1,a+1])
+    return dict(axisX=axes[0].tolist(), axisY=axes[1].tolist(), grid=grid.tolist(),
+                pc=pc.tolist(), heights=heights.tolist(), planes=indices, skipped=skipped,
+                explained=(singular[:2]**2/np.sum(singular**2)).tolist(), cap=cap)
+```
+
+```python {.marimo}
+#| error: false
+config = training.value or dict(task="x", lr=.01, steps=201, seed=42)
+W, losses, x, y = train(**config)
+mo.md(f"**训练结果** · 目标 `{config['task']}` · {config['steps']} 步 · "
+      f"初始 MSE **{losses[0]:.6f}** → 最终 MSE **{losses[-1]:.6f}**")
+```
+
+## 2. 从参数轨迹构建损失地形
+
+先将 31 维参数轨迹投影到前两个 PCA 方向，再沿训练轨迹取局部平面，计算真实网络损失并做高斯加权融合。修改下面的参数并点击 **计算地形**，只重算地形，复用上面的训练结果。
+
+默认采用 24 × 24 网格、每 20 步取一个局部平面。网格精度增加时计算量显著增长，建议从默认值开始。`k` 必须满足 `2k ≤ 训练步数`。
+
+```python {.marimo}
+#| error: false
+terrain = mo.md("{k}\n\n{sigma}\n\n{stride}\n\n{resolution}\n\n{cap}").batch(
+    k=mo.ui.number(1, 100, value=10, step=1, label="回看步数 k", full_width=True),
+    sigma=mo.ui.number(.001, 10, value=.1, step=.001, label="高斯宽度 sigma", full_width=True),
+    stride=mo.ui.number(1, 100, value=20, step=1, label="局部平面采样间隔", full_width=True),
+    resolution=mo.ui.number(8, 50, value=24, step=1, label="网格精度", full_width=True),
+    cap=mo.ui.number(.001, 100, value=1, step=.001, label="局部 loss 截断值", full_width=True),
+).form(submit_button_label="计算地形")
+terrain
+```
+
+```python {.marimo}
+#| error: false
+settings = terrain.value or dict(k=10, sigma=.1, stride=20, resolution=24, cap=1)
+mo.stop(2 * settings["k"] > config["steps"],
+        mo.callout("请减小 k 或增加训练步数，使 2k ≤ 训练步数。", kind="warn"))
+data = blend(W, x, y, **settings)
+mo.md(f"**地形结果** · {len(data['planes'])} 个局部平面 · "
+      f"{settings['resolution']} × {settings['resolution']} 网格 · "
+      f"PCA 前两轴解释方差 **{sum(data['explained']):.1%}** · "
+      f"跳过 {len(data['skipped'])} 个退化平面")
+```
+
+## 3. 观察训练轨迹
+
+桌面上左图是真实训练 MSE，右图是局部平面融合后的 loss 地形；手机窄屏下改为上下排列。使用 **Play / Pause / Reset** 或时间条查看训练轨迹，切换 **3D surface** 后可以拖动旋转。播放和切换视图仅更新 JavaScript 图表，不重新运行 Python。
+
+可以先保持随机种子不变，对比不同学习率下的损失下降速度和轨迹形状；再改变随机种子，观察初始化与采样变化带来的影响。单独调整地形网格精度或高斯宽度，可以比较可视化的细节与平滑程度，训练轨迹本身保持不变。
+
+```python {.marimo}
+#| error: false
+payload = dict(**data, losses=losses.tolist(), config=config, settings=settings)
+document = '''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head><body>
+<div id="app">Loading visualization…</div>
+<script id="data" type="application/json">''' + json.dumps(payload).replace('<', '\\u003c') + '''</script>
+<script type="module">
+try { await import(new URL('public/app.js', parent.document.baseURI).href); }
+catch(e) { document.getElementById('app').textContent='Visualization failed: '+e.message; }
+</script></body></html>'''
+mo.Html('<iframe class="landscape-frame" title="Loss landscape visualization" style="width:100%;height:940px;border:0" srcdoc="' + html.escape(document, quote=True) + '"></iframe>')
+```
+
+### 保存动画
+
+设置 **Export frames** 后，点击 **Export GIF** 或 **Export MP4**，生成完成后通过下载链接保存。首次导出需要额外加载约 32 MB 的 ffmpeg.wasm 资源，编码在浏览器中完成。帧数越多，所需时间和内存越大；移动设备建议从较少帧数开始。3D 视图需要浏览器支持 WebGL。
+
+## 4. 如何理解这张地形图
+
+网络参数空间有 31 维，图中的两个水平坐标对应训练轨迹的前两个 PCA 方向。页面报告的解释方差表示这两个方向保留了多少轨迹变化信息；它无法衡量损失地形的还原精度。
+
+地形由沿轨迹采样的局部平面融合而成。高斯宽度控制各局部平面的影响范围，网格精度控制采样密度，loss 截断值限制局部损失的显示幅度。这些设置会改变地形外观，比较不同训练配置时应一并留意。
+
+损失曲线下降缓慢时，可以结合时间条观察对应的轨迹区段，查看它在投影视图中的移动情况。平坦区域与训练停滞之间的关系仍需结合真实 MSE 判断。
+
+### 解释边界
+
+右图的高度是经过截断和融合的局部 loss，与真实轨迹的 MSE 通常不同。3D 小球的高度使用融合网格插值并增加显示偏移。PCA 投影、局部平面和平滑都可能隐藏结构，因此这张图不能证明优化器的稳定性或收敛性，也不保证所有配置都出现 sticky plateau。

@@ -1,0 +1,41 @@
+---
+title: activate-conda-env-in-shell
+date: '2025-10-06'
+date-modified: '2025-10-06'
+description: 在bash脚本中启动conda环境的方式，可用于自动化创建环境、训练模型。
+categories:
+- coding
+- shell
+- conda
+---
+最核心的方法是
+```bash
+#!/bin/bash
+eval "$(conda shell.bash hook)"
+conda activate <your_conda_env>
+```
+
+加入错误处理、信息提示，我们可以得到鲁棒性好的版本：
+```bash
+#!/bin/bash
+
+TARGET_ENV="target_env"
+
+if ! command -v conda &> /dev/null; then
+    echo "error: conda not found"
+    exit 1
+fi
+eval "$(conda shell.bash hook)"
+
+if [ "$CONDA_DEFAULT_ENV" != "$TARGET_ENV" ]; then
+    echo "activate: $TARGET_ENV"
+    conda activate "$TARGET_ENV"
+else
+    echo "already in env: $TARGET_ENV"
+fi
+
+python test.py
+```
+
+# 额外阅读
+- Conda如何在终端激活环境，是怎么实现的：[Conda 对你的 shell 做了什么？shell 相关部分的配置指南](https://yfi.moe/post/conda-shell-effects)

@@ -1,0 +1,45 @@
+---
+title: 在Ubuntu上安装v2rayA
+date: '2026-02-18'
+date-modified: '2026-02-18'
+description: 在Debian/Ubuntu上安装v2rayA的记录。
+categories:
+- softwares
+- vpn
+---
+# 安装v2rayA
+参照[v2rayA在Debian / Ubuntu上的安装教程](https://v2raya.org/en/docs/prologue/installation/debian/)。教程中的[Method 1](https://v2raya.org/en/docs/prologue/installation/debian/#method-1-install-through-the-software-source)是**无效**的（本博客发布时），它提供的apt source过期。
+
+使用[Method 2](https://v2raya.org/en/docs/prologue/installation/debian/#method-2-manually-install-the-deb-package)安装v2rayA，使用v2rayA的预编译文件。`.deb`预编译文件在[v2raya-apt](https://github.com/v2rayA/v2raya-apt)库（源文件库[v2ray-core](https://github.com/v2fly/v2ray-core)只有zip分发，需要解压）。
+# 安装v2ray-core
+参考[v2rayA · Discussion #1453](https://github.com/v2rayA/v2rayA/discussions/1453)安装v2ray-core。使用的是[v2ray-core](https://github.com/v2fly/v2ray-core)的releases。
+
+本节的代码需要在root权限下执行：使用`su root`或`sudo bash`。
+下载地理信息文件。
+```bash
+cd /etc/v2raya/
+wget https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geoip.dat
+wget https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat
+```
+安装v2ray-core。注意需要根据架构修改文件名，这里使用的是`arm64`架构。
+```bash
+mkdir v2ray
+cd v2ray
+wget https://github.com/v2fly/v2ray-core/releases/download/v5.25.1/v2ray-linux-arm64-v8a.zip
+unzip v2ray-linux-*
+mv v2ray /usr/bin/
+```
+为v2rayA配置文件添加v2ray-core的路径。
+```bash
+mkdir -p /etc/v2raya
+echo '{"v2ray_path": "/usr/bin/v2ray"}' > /etc/v2raya/config.json
+```
+然后重启v2rayA服务。
+```bash
+systemctl restart v2raya
+```
+# 脚本式安装
+我把上面的安装过程整理成了[bash shell脚本](https://gist.github.com/recynie/6839f0055327316f67a3c89fbe9e5381)。直接获取并执行：
+```bash
+curl -fSsL https://gist.githubusercontent.com/recynie/6839f0055327316f67a3c89fbe9e5381/raw/c989e8367f75f9dc9eb804db65d9fcb3a39461d6/install_v2raya_arm64.sh | bash
+```

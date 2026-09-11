@@ -1,0 +1,448 @@
+---
+title: auto research类研究综述
+date: '2026-05-25'
+date-modified: '2026-05-25'
+description: 尽量全面地考察现有的auto research pipeline。聚焦于方法论，从搜索策略、记忆机制、知识进化方法等维度评估。参考[handsome-rich/Awesome-Auto-Research-Tools](https://github.com/handsome-rich/Awesome-Auto-Research-Tools)。
+categories:
+- agent
+- auto-research
+- aigc
+---
+参考[handsome-rich/Awesome-Auto-Research-Tools](https://github.com/handsome-rich/Awesome-Auto-Research-Tools)
+
+> 本文聚焦方法论维度分析。每个系统从以下角度考察：
+> - **搜索策略**：树/图/链式搜索范式
+> - **记忆机制**：持久化记忆 / 分层记忆 / 跨 session 学习
+> - **知识进化方法**：知识评估 / 假设生成与验证 / 知识更新
+> - **其他特殊方法**：质量控制、人机协作、领域适配等
+
+---
+
+## 1. R&D-Agent (Microsoft)
+
+> Li et al. (2025). *R&D-Agent-Quant: A Multi-Agent Framework for Data-Centric Factors and Model Joint Optimization*. NeurIPS 2025. [[arXiv]](https://arxiv.org/abs/2505.15155) [[code]](https://github.com/microsoft/RD-Agent)
+
+### 搜索策略
+- **多臂老虎机调度（Contextual Two-Armed Bandit）**：将"优先优化因子 vs 模型"建模为两臂老虎机，用 8 维性能状态向量 + 线性 Thompson Sampling 自适应平衡探索与利用。
+- **知识森林（Knowledge Forest）**：按动作类型分类的历史假设树。成功→提升复杂度/扩大范围；失败→结构调整或引入新变量。"局部精炼 → 方向转换 → 策略重访"的搜索模式。
+- Co-STEER 使用 **DAG 任务依赖建模**，拓扑排序指导执行，维护 task-code-feedback 三元组进行跨任务代码知识迁移。
+
+### 记忆机制
+- **动态知识库**：记录成功/失败的 task-code-feedback 三元组
+- **知识森林**：跨 session 的假设树持久化，支持自适应检索
+
+### 知识进化方法
+- **假设生成**：Synthesis Unit 基于历史实验生成新的因子/模型假设
+- **验证**：Qlib 平台真实市场回测（IC>=0.99 去重）
+- **评估与反馈**：Analysis Unit 多维评估，驱动下一轮迭代
+- **联合优化**：因子-模型联合优化（Factor-Model Co-optimization）
+
+### 其他特殊方法
+- **Co-STEER**：用 DAG 建模代码依赖，跨任务知识迁移
+- **数据中心设计**：LLM 仅接触 schema 级信息，不暴露原始市场数据
+
+---
+
+## 2. AutoResearchClaw (AIMING Lab, UNC)
+
+> arXiv:2605.20025. [[code]](https://github.com/aiming-lab/AutoResearchClaw)
+
+### 搜索策略
+- **23 阶段确定性流水线**：从 idea → 文献检索 → 方法设计 → 代码 → 沙箱实验 → 统计分析 → 论文 → 多 agent 评审。整体是链式结构，但内部有分支。
+- **MetaClaw 跨运行学习**：流水线失败 → 结构化提取教训 → 生成可复用的 SKILL.md 文件。跨 session 的失败经验积累形成**适应性搜索偏置**。
+
+### 记忆机制
+- **MetaClaw 技能文件**：失败→教训的形式化持久化，注入到所有 23 个阶段
+- 无显式的分层记忆结构，但实验失败以技能形式跨 session 复用
+
+### 知识进化方法
+- **域特异实验 Agent**：HEP→ColliderAgent, 生物→COBRApy, 统计→simulation agent
+- **ARC-Bench 评测**：55 个开放主题的自主研究基准
+- **4-round paper quality audit**：AI-slop 检测、7 维评分、NeurIPS checklist
+
+### 其他特殊方法
+- **HITL Co-Pilot**：6 种干预模式（gate-only / step-by-step / co-pilot 等），ALHF 学习人类偏好
+- **多域路由**：自动将实验任务路由到对应域的专家执行 agent
+- **CLI agent 委派**：将复杂代码生成委派给外部 CLI agent（Claude Code / Codex 等）
+
+---
+
+## 3. ARIS (Auto-Research-In-Sleep)
+
+> wanshuiyin. arXiv:2605.03042. [[code]](https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep)
+
+### 搜索策略
+- **5 步循环基元**：`plan → draft → adversarial review → iterate → persist`。这不是树也不是链，而是**受控对抗循环**。
+- **Effort × Assurance 双轴控制**：effort 控制搜索深度（lite→beast），assurance 控制验证严格度（draft→submission）。正交双轴实现灵活的计算-质量权衡。
+
+### 记忆机制
+- **文件化 artifact 契约**：通过固定路径的 Markdown 文件（IDEA_REPORT.md, REVIEW_STATE.json）实现状态持久化，天然支持 resume。
+- **被动事件日志**：hooks 层写入 `.aris/meta/events.jsonl`
+- **`/meta-optimize`**：从事件日志提出技能改进，实现**自我进化的方法论**
+
+### 知识进化方法
+- **跨模型对抗性评审**：执行者（executor）与评审者（reviewer）分离。评审者在**全新零上下文线程**中阅读 artifact（仅文件路径，无摘要）。反谄媚约束——"Executor must NOT judge its own integrity"。
+- **5 层完整性审计链（Assurance Contract）**：
+  1. `/experiment-audit`：实验代码诚实性
+  2. `/result-to-claim`：结果到主张的科学有效性
+  3. `/paper-claim-audit`：论文数字如实报告（零上下文）
+  4. `/citation-audit`：引用存在性+上下文适当性
+  5. `/kill-argument`：最强反驳 + 独立裁判
+  当 `assurance: submission` 时，任何层 non-green 则拒绝输出
+
+### 其他特殊方法
+- **方法论优先于平台**：轻量级 Markdown-only skills，不依赖特定 agent 框架
+- **自改进方法论**：`/meta-optimize` 读取事件日志并修改自身技能定义
+- **泛化到非学术场景**：同样的 5 步循环可用于投资尽调、法律研究等
+
+---
+
+## 4. AI-Scientist-v2 (Sakana AI)
+
+> Sakana AI. The first AI-generated workshop paper accepted through peer review. [[code]](https://github.com/SakanaAI/AI-Scientist-v2)
+
+### 搜索策略
+- **BFTS（Best-First Tree Search）**：在实验空间中做树搜索。每个节点代表实验状态，从当前最佳节点扩展。配置参数：`num_workers`（并行路径）、`steps`（最大节点数）、`max_debug_depth`（失败调试上限）、`num_drafts`（初始根节点数）。
+- **去模板化（Template-Free）**：v1 依赖人工预设模板 → v2 从主题描述自主生成 idea、设计实验、执行、撰写。范式转变：**模板内搜索 → 开放域树搜索**。
+
+### 记忆机制
+- 无显式跨 session 持久化记忆。每个实验运行从零开始。
+- **重试机制**：`max_debug_depth` 和 `debug_prob` 控制失败路径的调试重试
+
+### 知识进化方法
+- **两阶段流程**：Stage 1 Ideation（LLM brainstorming + Semantic Scholar 新颖性检查）→ Stage 2 BFTS Experimentation
+- **自动化论文撰写与评审**：生成论文后，使用 LLM 评审打分，评估科学质量
+
+### 其他特殊方法
+- 首次验证 AI 生成的论文可以通过**真实同行评审**（ICLR 2025 Workshop）
+- vs v1：成功率低但探索性更强——这是模板 vs 开放探索的根本权衡
+
+---
+
+## 5. DeepScientist (Westlake / ResearAI)
+
+> ICLR 2026 Top-10 Rated. arXiv:2509.26603. [[code]](https://github.com/ResearAI/DeepScientist)
+
+### 搜索策略
+- **贝叶斯优化（Bayesian Optimization）作为形式化框架**：科学价值函数 f: I → ℝ 是黑箱，优化目标是 I* = argmax f(I)。一次评估 ≈ 完整科研周期（~10¹⁶ FLOPs）。
+- **UCB（Upper Confidence Bound）采样**：
+  > **I_{t+1} = argmax_{I∈Pnew} [ wᵤvᵤ + w_qv_q + κ·vₑ ]**
+  - 利用项：wᵤvᵤ + w_qv_q（高价值/高质量）
+  - 探索项：κ·vₑ（高不确定性）
+  - 实验：无 UCB → ~0% 成功率，有 UCB → ~1-3%，节省 ~80,000 GPU 小时
+
+### 记忆机制
+- **Findings Memory（发现记忆）**——三级层次化记忆：
+  | 类型 | 阶段 | 描述 |
+  |------|------|------|
+  | Idea Finding | 假设 | 未验证假设 + LLM 估值向量 V = ⟨vᵤ, v_q, vₑ⟩ |
+  | Implement Finding | 验证 | 经 UCB 选中后实验验证，含实验结果 |
+  | Progress Finding | 晋升 | 仅当超越基线时晋升，触发深度分析 → LaTeX 论文 |
+- 失败路径**保留**（不删除），约束代理模型避免重探死路
+- 多 GPU 并行时共享 Findings Memory，每 5 轮同步 → 近乎线性的人格并发增益
+- **Research Map**：每个 quest 是真实 Git 仓库，分支=探索方向，worktree=并行实验。Canvas UI 从 Git 结构重建发现轨迹图。
+
+### 知识进化方法
+- **LLM as Surrogate Model**：LLM Reviewer 结合 Findings Memory 对假设空间进行三维估值
+- **三阶段闭环**：Strategize & Hypothesize → Implement & Verify → Analyze & Report
+- 发现速度：将人类 3 年的 AI 文本检测研究压缩到 14 天
+
+### 其他特殊方法
+- 全系统可用形式化数学描述（BO 框架 + UCB + 三维估值）
+- 被 ICLR 2026 接收为 Top-10 论文——系统本身是学术贡献
+
+---
+
+## 6. EvoScientist (Huawei / VU Amsterdam)
+
+> arXiv:2603.08127. 6/6 AI-generated papers accepted at ICAIS 2025 (2 awards).
+
+### 搜索策略
+- **Idea Tree Search**：树状 propose → review → refine，每节点存储（idea draft, review feedback），最多 N_I=21 个候选。
+- **Elo Tournament 选优**：配对比较（novelty/feasibility/relevance/clarity）。Elo 评分在噪声 LLM 评委下产生稳定排名，无需校准绝对分数。
+- **4-Stage Experiment Tree Search**（Engineer Agent）：
+  1. Initial Implementation（up to 20 attempts）
+  2. Hyperparameter Tuning（up to 12）
+  3. Proposed Method（up to 12）
+  4. Ablation Studies（up to 18）
+
+### 记忆机制
+- **Ideation Memory (M_I)**：存储有前景/已失败的研究方向。embedding-based cosine-similarity 检索，top-k_I=2 注入 RA prompt。
+- **Experimentation Memory (M_E)**：存储成功的数据处理/训练策略。top-k_E=1 注入 EA prompt。
+- EMA（Evolution Manager Agent）读取所有交互历史，更新双记忆模块。**跨 session 持久化**。
+
+### 知识进化方法（核心贡献）
+三种命名机制，由 EMA 驱动：
+1. **Idea Direction Evolution (IDE)**：Top-3 Elo 想法 → M_I 的新方向
+2. **Idea Validation Evolution (IVE)**：实验失败 → M_I 的失败方向，防止重探死路
+3. **Experiment Strategy Evolution (ESE)**：成功代码搜索轨迹 → M_E 的可复用策略
+
+消融实验：
+- 移除 IDE → novelty 下降 66.67%
+- 移除 IVE → feasibility 下降 63.33%
+- 移除所有演化 → 80-83% 失败率
+- Code success rate 从 34.39% → 44.56%（ESE 后）
+
+### 其他特殊方法
+- **Human-on-the-Loop**：人类设置目标、审查最终产出，AI 全程自主。区别于 human-in-the-loop（批准每一步）和 human-out-of-loop（完全无监督）。
+- 将"系统变得更好"（evolve）作为第一类概念——不是固定流水线，而是可演化的方法论。
+
+---
+
+## 7. AI-Researcher (HKU)
+
+> Tang et al. NeurIPS 2025 Spotlight. arXiv:2505.18705. [[code]](https://github.com/HKUDS/AI-Researcher)
+
+### 搜索策略
+- **Mentor-Student 迭代精化**：借鉴学术研究中的导师-学生关系，多 agent 协作通过结构化反馈循环迭代精化代码。不是树搜索，而是有层次地传递实现策略的迭代链。
+- **Resource Analyst Agents**：将复杂概念分解为原子组件，在数学公式和代码实现之间建立显式**双向映射**，降低生成代码的幻觉风险。
+
+### 记忆机制
+- 无显式的跨 session 持久化记忆系统
+
+### 知识进化方法
+- **两层创新任务**：Scientist-Bench 定义 Level-1（Guided Innovation，给指令）和 Level-2（Open-Ended Exploration，仅给主题）
+- **反直觉发现**：Level-2 表现优于 Level-1，"自主系统在依赖内部知识综合而非遵循预设指令时表现更好"
+- **Documentation Agent**：层次化综合方法将实验产物转化为出版级论文
+
+### 其他特殊方法
+- **Scientist-Bench**：第一个全面自主科研系统基准
+- 覆盖 22 篇 benchmark paper，多 LLM evaluator
+
+---
+
+## 8. Agent Laboratory
+
+> Schmidgall et al. arXiv:2501.04227. [[code]](https://github.com/SamuelSchmidgall/AgentLaboratory)
+
+### 搜索策略
+- **三阶段确定性链式流程**：Literature Review → Experimentation → Report Writing。每个阶段由专业 agent 驱动。
+- **普通链式搜索**，无树/图结构
+
+### 记忆机制
+- 无跨 session 持久化记忆
+- 支持 **checkpoint 加载**（state_saves）
+
+### 知识进化方法
+- **AgentRxiv**：agent 之间的知识接力平台——自主科研 agent 可以上传、检索、基于彼此工作构建。这是目前少数实现"agent-to-agent 知识共享"的系统。
+
+### 其他特殊方法
+- **Co-Pilot 模式**：用户在 YAML 配置中设置 `copilot-mode: "true"`，系统在关键决策点等待人类输入
+- **Task Notes 系统**：用户通过 `task_notes_LLM` 结构注入领域知识、计算约束、偏好
+
+---
+
+## 9. InternAgent (Shanghai AI Lab)
+
+> 1.0: arXiv:2505.16938. 1.5: arXiv:2602.08990.
+
+### 搜索策略
+- **FlowSearch（动态依赖图搜索）**：将科研建模为**演化依赖图**而非顺序计划。节点=子问题/概念，边=知识依赖。flow planner 初始化图，随着研究进行递归分解、上游知识整合、动态修订。并行探索（广度）和层次分解（深度）同时进行——解决单 agent 隧道视野和 naive 多 agent 碎片化推理的权衡。GAIA/HLE/GPQA/TRQA 上 SOTA。
+- **Progressive search within bounded hypothesis spaces**（MLEvolve）
+
+### 记忆机制（InternAgent 1.5 关键创新）
+**三层跨 session 记忆系统：**
+1. **Task Memory（在线记忆）**：每次实验结束存储 idea + metrics + label（positive/neutral/negative）。下一轮通过混合搜索（keyword + semantic embedding via BAAI/bge-base-en-v1.5）检索，注入生成 prompt。
+2. **IdeaGraph**：跨 session 的想法图，节点=想法，边=语义相似性。用于检测冗余、度量探索广度。
+3. **PromptEvolver**：基于累积经验周期性**重写 idea generation prompt 本身**。将系统推向有成功记录的方向，远离失败路径。实现**搜索策略的元学习**。
+
+### 知识进化方法
+- **领域无关框架**：同一系统处理物理模拟、生物信息学、地球科学、AI 等 12+ 任务类型
+- **ResearchClawBench 复现任务**：给定论文 PDF + 数据，agent 需自主复现关键发现
+- **LLM-judge 评分**：对照 checklist.json，0-100 分（50=匹配论文，>50=超越）
+
+### 其他特殊方法
+- **统一性**：证明同一框架跨 4+ 学科领域有效
+- MLEvolve 和 FlowSearch 两子系统并行
+
+---
+
+## 10. Biomni (Stanford)
+
+> Huang et al. bioRxiv 2025. [[code]](https://github.com/snap-stanford/Biomni)
+
+### 搜索策略
+- **Retrieval-augmented planning → LLM reasoning → code-based execution 三步循环**
+- 无模板/无任务特定调优——零样本泛化到新任务
+
+### 记忆机制
+- **Know-How Library**：生物医学技术最佳实践、协议、故障排除指南的策展集合。在规划步骤被检索注入，将通用 LLM 知识与专科程序性知识连接。自动检索，非跨 session 学习。
+
+### 知识进化方法
+- **Action Discovery Agent**：LLM agent 扫描 ~2,500+ bioRxiv 论文（跨 25 个生物医学子领域），提取核心工具、数据库和工作流程，**自动形式化一个学科的计算行动空间**。150 个工具、105 个软件包、59 个数据库。
+- **Biomni-R0**：从 agent 交互轨迹 RL 微调的 Qwen-32B 领域推理模型
+
+### 其他特殊方法
+- **多模态处理**：通过工具组合式调用而非统一编码器
+- **BioMNI-Bench**：8 个真实场景（因果基因优先级、药物重定位、罕见病诊断等）
+- +402.3% over base LLM, +43% over coding agent
+
+---
+
+## 11. autoresearch (Karpathy)
+
+> Karpathy. 2026. ~630 行代码 + program.md.
+
+### 搜索策略
+- **贪心爬山（Greedy Hill-climbing in training-script space）**：编辑 train.py → git commit → 5 分钟实验 → 读 val_bpb → 改进保留，否则 git reset --hard
+- 每次编辑可能涉及架构、优化器、超参数、激活函数等任意层面
+
+### 记忆机制
+- **Git 作为实验账本**：每个 commit = 一次实验，改进的 commit 被保留，差的被 reset。这是**基于版本控制的隐式记忆**。
+- **results.tsv**：被 gitignore 的日志文件，记录所有实验结果。
+
+### 知识进化方法
+- **program.md 作为元优化层**：人类编辑 program.md 来调整 agent 行为策略。形成"人类元优化 → agent 对象级实验"的两层循环。
+- **被冻结的 prepare.py**：包含 eval 逻辑，agent 不能修改——防止 metric gaming。
+
+### 其他特殊方法
+- **极简设计哲学**：minimal scaffolding，无 agent 框架/无 tool-calling API
+- **5 分钟固定时间预算**作为实验单元，~100 次实验/夜
+- **Simplicity as reward**：代码删除视为改进，复杂度和改进幅度需要权衡
+
+---
+
+## 12. claude-scholar
+
+> Galaxy-Dawn. 2026. [[code]](https://github.com/Galaxy-Dawn/claude-scholar)
+
+### 搜索策略
+- **半自动化链式流程**：ideation → coding → experiments → writing → publication，人类在每一步控制节奏
+- 不支持树/图搜索
+
+### 记忆机制
+- **证据门控研究契约（Evidence-Gated Research Contract）**：`research-contract.md` 定义证据记录、主张强度等级和**晋升门控**。原始注释在 `Sources/Papers/`，通过审查的主张晋升到 `Knowledge/` → `Writing/`。这是**形式化的知识论品质控制链**。
+- **Obsidian Vault 分层**：Sources/Papers/ → Knowledge/ → Writing/，每层不同晋升标准
+
+### 知识进化方法
+- **Zotero 作为流水线节点**：不是单纯的引用管理，而是结构化论文导入+元数据清洗+注释提取的完整流水线
+- **Expression-Skill**：conclusion-first 框架约束所有输出
+
+### 其他特殊方法
+- **多 CLI 运行时适配**：同一套 skills 在 Claude Code / Codex CLI / OpenCode 上运行
+- **pubfig / pubtab**：将"分析代码中的图/表"与"出版级 artifact 生成"分离
+
+---
+
+## 13. Idea2Paper / Idea2Story (AgentAlpha)
+
+> arXiv:2601.20833. [[code]](https://github.com/AgentAlphaAGI/Idea2Paper)
+
+### 搜索策略
+- **离线预计算 → 在线检索适配**：范式转移——将 LLM 在线推理的优势与离线知识图谱的结构化约束结合。
+- **三级层次化检索**：idea-level（语义相似）→ domain-level（跨域类比）→ paper-level（源论文）
+
+### 记忆机制
+- **方法论知识图谱（Methodological Knowledge Graph）**：
+  - 节点 = Method Unit（论文的原子方法论组件）
+  - 边 = 关系（extends / combines-with / applied-to / contrasts-with）
+  - 共现模式 = 可复用的 research patterns
+- **Review Signals 锚定**：8,285 篇 ICLR 2025 论文的评审反馈作为质量过滤器
+- 这是**离线持久化知识库**，非运行时记忆
+
+### 知识进化方法
+- **Method Unit 提取**：LLM 流水线将论文分解为原子组件——不是自由文本摘要，不是论文级 embedding，而是**可组合的方法论原语**。
+- **Review-Guided Refinement**：LLM agent 使用存储的 peer review 反馈作为质量锚点精化检索模式
+- **Anchored Multi-Agent Review**：评审意见锚定在 KG 的评审信号中
+
+### 其他特殊方法
+- **将计算时间从运行时转移到离线阶段**：运行时只需检索-适配，避免昂贵的长上下文 LLM 推理
+- **不假设"LLM 在线推理就够"**——这是方法论上最独特的前提假设
+
+---
+
+## 14. DATAGEN
+
+> GitHub only. ~1.7k stars. 无正式论文.
+
+### 搜索策略
+- **LangGraph 状态图编排**8 个 agent：hypothesis / process / code / visualization / searcher / report / quality-review / note agent
+- **Human-in-the-loop 假设门控**：状态机中的中断节点，用户在继续前验证假设
+
+### 记忆机制
+- **Note Taker Agent**：专用的 note agent 维护运行中结构化研究记录，解决多步工作流上下文窗口碎片化
+- **PheroPath（实验性）**：文件级 inter-agent 信息素信号（DANGER/TODO/SAFE），蚁群启发的协调机制
+
+### 知识进化方法
+- **Progressive Disclosure 配置**：三级配置（AGENT.md skills + config.yaml + MCP servers），每 agent 可分配不同模型
+- 检索 = 标准 web search（Firecrawl/Tavily），无特殊
+
+### 其他特殊方法
+- 无正式论文，方法论深度有限
+- **工程价值多于学术价值**
+
+---
+
+## 方法论维度横向对比
+
+### 搜索策略光谱
+
+```
+贪心爬山 ──────────────────────────────────→ 形式化优化框架
+  autoresearch                                      DeepScientist (BO+UCB)
+        │                                                    │
+        ├── 链式流水线 ───────────────────┐
+        │   Agent Lab / claude-scholar    │
+        │                                │
+        └── 树搜索 ────────────┐
+            AI-Scientist-v2 (BFTS)    │
+            EvoScientist (双树搜索)     │
+                                      │
+            └── 图搜索 ───────────┐
+                InternAgent (FlowSearch)  │
+                RD-Agent (Knowledge Forest)│
+```
+
+### 记忆机制的维度
+
+| 系统 | 记忆类型 | 持久化 | 层次化 | 跨 session |
+|------|---------|--------|--------|-----------|
+| DeepScientist | Findings Memory（三级类型） | ✅ | ✅ Idea/Implement/Progress | ✅ |
+| EvoScientist | 双记忆（M_I + M_E） | ✅ | ✅ 两种专业模块 | ✅ |
+| InternAgent 1.5 | 三层（Task Mem + IdeaGraph + PromptEvolver） | ✅ | ✅ 三层次 | ✅ |
+| RD-Agent | Knowledge Forest（假设树） | ✅ | ✅ 按动作类型分类 | ✅ |
+| AutoResearchClaw | MetaClaw（技能文件） | ✅ | ❌ 扁平 | ✅ |
+| ARIS | 事件日志 + REVIEW_STATE.json | ⚠️ session 内 | ❌ | ⚠️ events 可跨 session |
+| Idea2Paper | 方法论 KG（离线预计算） | ✅ | ✅ 三级检索 | ✅ |
+| autoresearch | Git + results.tsv | ⚠️ 隐式 | ❌ | ❌ |
+| AI-Scientist / AI-Scientist-v2 / AI-Researcher / Agent Lab | ❌ | ❌ | ❌ | ❌ |
+| Biomni | Know-How Library（离线策展） | ✅ | ❌ | ❌（注入非学习） |
+
+### 知识进化创新的类型
+
+| 类型 | 代表系统 | 核心机制 |
+|------|---------|---------|
+| **贝叶斯优化** | DeepScientist | LLM Surrogate + UCB + Findings Memory 更新 |
+| **元学习演化** | EvoScientist | EMA 读取历史 → IDE/IVE/ESE 更新双记忆 |
+| **记忆+Prompt 演化** | InternAgent 1.5 | Task Memory + IdeaGraph → PromptEvolver 改写生成策略 |
+| **假设树自适应** | RD-Agent | Knowledge Forest：成功→扩张，失败→重组 |
+| **失败→技能蒸馏** | AutoResearchClaw | MetaClaw：失败→lesson→SKILL.md 文件 |
+| **自我改进方法论** | ARIS | `/meta-optimize` 从 events.jsonl 提出技能改进 |
+| **离线 KG 锚定** | Idea2Paper | Method Unit 提取 + Review Signals → 检索式精化 |
+
+### 质量控制方法的维度
+
+| 系统 | 代码诚信 | 主张验证 | 引用校验 | 论文质量 |
+|------|---------|---------|---------|---------|
+| ARIS | experiment-audit | result-to-claim + paper-claim-audit | citation-audit + kill-argument | 5 层硬门控 |
+| DeepScientist | 无显式 | Progress Finding 晋升条件 | 无 | LLM 评审 |
+| AI-Scientist | 无 | 模板约束 | Semantic Scholar | LLM peer review |
+| AutoResearchClaw | AI-slop 检测 | 统计分析 | 无 | 4-round audit + checklist |
+| claude-scholar | 无 | Evidence-Gated Claim Promotion | Zotero 管理 | 人类控制 |
+| AI-Researcher | 概念-代码映射防幻觉 | 无显式 | 无 | Documentation Agent |
+
+> **ARIS 是唯一将科研诚信保障系统化成形式化验证门的系统**，5 层审计链覆盖从代码逻辑到论文声明的全链条。
+
+---
+
+## 尚未涵盖的系统（待补充）
+
+以下系统也出现在 awesome list 的 E2E 分类中，但本文未深入分析（存在于前述 e2e-auto-research-survey.md 中）：
+
+- **OpenClaw**：AutoResearchClaw 的底层运行时框架
+- **AIDE (Agentic Iterative Development & Execution)**：AI-Scientist-v2 使用的底层实验引擎
+- **TinyScientist**：EMNLP 2025 Demo，EvoScientist 团队的轻量版
+
+---
+
+> **最后更新**：2026-05-25

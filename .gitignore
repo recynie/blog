@@ -1,0 +1,8 @@
+/drafts/
+.syncthing.*.tmp
+/.quarto/
+/_site/
+/.venv/
+__pycache__/
+
+**/*.quarto_ipynb

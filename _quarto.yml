@@ -1,0 +1,31 @@
+project:
+  type: website
+  render:
+    - index.qmd
+    - gallery.qmd
+    - posts/**/*.qmd
+
+lang: en
+
+website:
+  title: "Yukiguni"
+  navbar:
+    background: light
+    foreground: "#172b3d"
+    left:
+      - href: index.qmd
+        text: Posts
+      - href: gallery.qmd
+        text: Gallery
+  search: true
+
+format:
+  html:
+    theme: zephyr
+    css: styles/colors.css
+    toc: true
+    html-math-method: mathjax
+    include-in-header: includes/mathjax.html
+
+execute:
+  enabled: false

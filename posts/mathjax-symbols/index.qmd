@@ -1,0 +1,153 @@
+---
+title: MathJax速查手册
+date: '2024-11-18'
+date-modified: '2024-12-01'
+description: MathJax常用公式手册
+categories:
+- math
+- latex
+---
+# MathJax数学符号
+
+汇总了一些常用的MathJax符号，用于数学公式排版
+
+## 行内符号
+
+### 运算,比较,关系符
+
+| 符号描述               | 代码                | 效果                    | 说明       |
+| ---------------------- | ------------------- | ----------------------- | ---------- |
+| 不等号                 | `\geq \ge \leq \le` | $\geq \ge \leq \le$ |            |
+| 不等于                 | `\not=`或`\neq`     | $\not= \neq$          |            |
+| 约等于                 | `\approx`           | $\approx$              |            |
+| 近似等于               | `\simeq`            | $\simeq$               |            |
+| 正比于                 | `\propto`           | $\propto$              |            |
+| 不大于 不小于          | `\not> \not<`       | $\not> \not\<$        |            |
+| 点乘                   | `\cdot`             | $\cdot$                |            |
+| 叉乘                   | `\times`            | $\times$               |            |
+| 加减号                 | `\pm`               | $\pm$                  | plus minus |
+| n次根号                | `\sqrt[n]{x}`       | $\sqrt[n]{x}$          |            |
+| 相似于,服从分布,波浪线 | `\sim`              | $\sim$                 |            |
+
+### 变量标记
+
+| 符号描述    | 代码           | 效果            | 说明 |
+| ----------- | -------------- | --------------- | ---- |
+| hat标记     | `\hat{x}`      | $\hat{x}$      |      |
+| 向量        | `\vec{v}`      | $\vec{v}$      |      |
+| 上划线,均值 | `\overline{x}` | $\overline{x}$ |      |
+
+### 特殊字体
+
+| 符号描述        | 代码             | 效果              | 说明     |
+| --------------- | ---------------- | ----------------- | -------- |
+| 集合            | `\mathbb{R}`     | $\mathbb{R}$     |          |
+| 样本空间,假设集 | `\mathcal{X}`    | $\mathcal{X}$    |          |
+| 学习算法        | `\mathfrak{L}`   | $\mathfrak{L}$   |          |
+| 向量            | `\boldsymbol{v}` | $\boldsymbol{v}$ | 粗体符号 |
+| 粗体            | `\bold{var}(X)`  | $\bold{var}(X)$  | 粗体     |
+| 微分算符        | `\rm{d}`         | $\rm{d}$         | 正体     |
+|                 |                  |                   |          |
+
+### 排版
+
+| 符号描述       | 代码     | 效果      | 说明 |
+| -------------- | -------- | --------- | ---- |
+| 水平省略号     | `\cdots` | $\cdots$ |      |
+| 竖直省略号     | `\vdots` | $\vdots$ |      |
+| 对角线省略号   | `\ddots` | $\ddots$ |      |
+| 文本底线省略号 | `\ldots` | $\ldots$ |      |
+
+### 逻辑
+
+| 符号描述     | 代码                       | 效果                       | 说明                     |
+| -------- | ------------------------ | ------------------------ | ---------------------- |
+| 向左/右双重箭头 | `\Leftarrow \Rightarrow` | $\Leftarrow \Rightarrow$ |                        |
+| 左右双重箭头   | `\Leftrightarrow`        | $\Leftrightarrow$        |                        |
+| 充分条件     | `\implies`               | $\implies$               | 符号两侧有空隙                |
+| 必要条件     | `\impliedby`             | $\impliedby$             | 符号两侧有空隙                |
+| 充要条件     | `\iff`                   | $\iff$                   | **if** and only i**f** |
+| 对一切,任意   | `\forall`                | $\forall$                |                        |
+| 对某个,存在   | `\exists`                | $\exists$                |                        |
+
+## 跨行符号
+
+### 分段函数
+
+使用`cases`环境
+
+每一行之内是单行风格,可以用`\displaystyle`转化为跨行显示(display)风格.
+
+> ```latex
+> \begin{cases}
+> ...something...
+> \end{cases}
+> ```
+
+$$
+F(x)=\begin{cases}
+case\ 1, \
+case\ 2.
+\end{cases}
+$$
+
+### 矩阵, 分布列, 行列式等
+
+```latex
+\begin{matrix}
+0 & 1 \
+1 & 0 
+\end{matrix}
+```
+
+$$
+\begin{gathered}
+\begin{matrix} 0 & 1 \ 1 & 0 \end{matrix}
+\quad
+\begin{pmatrix} 0 & -i \ i & 0 \end{pmatrix}
+\quad
+\begin{bmatrix} 0 & -1 \ 1 & 0 \end{bmatrix}
+\quad
+\begin{Bmatrix} 1 & 0 \ 0 & -1 \end{Bmatrix}
+\quad
+\begin{vmatrix} a & b \ c & d \end{vmatrix}
+\quad
+\begin{Vmatrix} i & 0 \ 0 & -i \end{Vmatrix}
+\end{gathered}
+$$
+
+​ `matrix` `pmatrix` `bmatrix` `Bmatrix` `vmatrix` `Vmatrix`
+
+## 格式
+
+### 对齐多个公式
+
+使用`gathered`环境.
+$$
+\begin{gather}
+a + b = c \
+d + e = f \
+g + h = i
+\end{gather}
+$$
+
+### 按某个字符对齐各个行
+
+使用`align`环境.
+
+> 常用于等式推导.
+
+```latex
+\begin{align}
+...
+\end{align}
+```
+
+示例:
+$$
+\begin{align}
+E[X] =& \sum\_{n=1}^{\infin} (\frac{1}{2})^{n-1}(1-\frac{1}{2})\cdot 2^n \
+=& \sum\_{n=1}^{\infin} 1 \
+=& +\infin
+\end{align}
+$$

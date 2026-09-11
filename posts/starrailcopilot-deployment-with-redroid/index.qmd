@@ -1,0 +1,420 @@
+---
+title: 以redroid为基础部署Star Rail Copilot
+date: '2026-08-07'
+date-modified: '2026-08-07'
+description: 在Linux上用Docker运行R、edroid，通过ADB将Android版《崩坏：星穹铁道》接入StarRailCopilot，并记录SELinux、GPU、ARM转译、设备配置和systemd调度中的关键问题。
+categories:
+- softwares
+- redroid
+- starrailcopilot
+- android
+- linux
+- aigc
+---
+
+StarRailCopilot（下文简称 SRC）的官方文档介绍了 Windows 模拟器以及 Linux 下的手动安装方法，却没有详细说明如何把 redroid 作为 Android 运行环境。本文记录一套已经实际跑通的方案：在 Linux 宿主机上用 Docker 运行 redroid，在 redroid 中安装 Android 版《崩坏：星穹铁道》，再让 SRC 通过 ADB 完成截图、识别和输入控制。
+
+本文的实测环境如下：
+
+- Fedora 44 Workstation，GNOME/Wayland；
+- AMD Hawk Point 核显；
+- Docker 由 Fedora 的 `moby-engine` 和 `docker-cli` 提供；
+- `redroid/redroid:12.0.0-latest`；
+- redroid 分辨率为 1280×720；
+- SRC 连接参数为 `ADB_nc + MaaTouch`；
+- 国服 Android 客户端，包名为 `com.miHoYo.hkrpg`。
+
+redroid 对内核、SELinux、GPU 驱动的要求会随发行版和硬件变化。本文中的 GPU 节点和 Fedora 命令需要按实际机器调整。`latest` 也是可变标签；长期部署时应额外记录 `docker image inspect` 输出的镜像 digest。
+
+## 架构与适用范围
+
+最终的数据通路很简单：
+
+```text
+SRC（Linux 进程）
+  ├─ ADB 截图与输入
+  └─ 127.0.0.1:5555
+          │
+Docker / redroid（Android 12）
+  ├─ ARM native bridge
+  ├─ 宿主机 GPU
+  └─ Android 版《崩坏：星穹铁道》
+```
+
+SRC 并不要求目标一定带有传统模拟器的桌面窗口。设备层真正依赖的是一台可通过 ADB 访问、能够截图和接收输入的 Android 实例。SRC 的设备命令也会显式添加 `-s <serial>`。redroid 因此可以作为 SRC 的运行环境。
+
+这套方案有一个边界：SRC 文档所说的“自动启动模拟器”目前主要支持 MuMu 和夜神等模拟器。redroid 不在这个范围内。需要先启动 redroid，再启动 SRC 调度器，或者用 systemd 建立二者的依赖关系。
+
+我最初尝试过 Waydroid。Waydroid 容器和 SRC 的兼容逻辑都能工作，但星铁进程会闪退回桌面。我没有得到足以推广到其他机器的通用根因，因此这里只把它记录为本机观察。实际部署随后转向 redroid。
+
+## 风险提示：先理解 SELinux 和暴露面
+
+这次部署中，redroid 只有在 SELinux 完全禁用后才能启动。容器同时使用 `--privileged` 并访问宿主机 GPU。这个组合显著削弱了宿主机的安全边界，不适合多租户服务器和承载敏感数据的机器。
+
+redroid 官方文档也明确提醒，不应把 ADB 端口暴露到公网。只在本机运行 SRC 时，应把端口绑定到 loopback：
+
+```bash
+-p 127.0.0.1:5555:5555
+```
+
+不要直接使用对所有网卡开放的 `-p 5555:5555`。WebUI 同理：只需本机访问时监听 `127.0.0.1`；需要局域网访问时再配置防火墙和 WebUI 密码。
+
+## 准备 SRC
+
+Linux 下安装 SRC 仍按官方手动安装教程进行。官方当前建议 Python 3.10.10：
+
+```bash
+git clone https://github.com/LmeSzinc/StarRailCopilot.git
+cd StarRailCopilot
+
+conda create -n src python==3.10.10
+conda activate src
+pip install -r requirements-in.txt
+python gui.py
+```
+
+WebUI 默认地址是 `http://127.0.0.1:22367`。这一步只负责准备 SRC。先不要启动任务调度器，下一步需要把 Android 环境单独验证完整。
+
+## 启动 redroid
+
+### 1. 检查内核和 SELinux
+
+本机最隐蔽的故障来自 SELinux。症状是容器启动后立即退出，Docker 几乎没有有效日志，而 `dmesg` 中出现 Android property 初始化错误：
+
+```text
+Failed to initialize property area
+InitFatalReboot: signal 6
+Reboot ending, jumping to kernel
+```
+
+`sudo setenforce 0` 只能进入 `Permissive`，在本机仍然无法启动 redroid。Fedora 上最终使用内核参数禁用 SELinux：
+
+```bash
+sudo grubby --update-kernel ALL --args selinux=0
+sudo reboot
+```
+
+重启后必须确认：
+
+```bash
+getenforce
+# Disabled
+```
+
+恢复 SELinux 时不能只删除内核参数。禁用期间创建的文件可能缺少正确标签，应先按照 Fedora 的 SELinux 恢复流程安排完整 relabel，再移除 `selinux=0` 并重启。直接在生产机器上来回切换可能导致系统无法正常启动。
+
+这一结论来自本文机器，不应直接推导为所有 redroid 主机都必须禁用 SELinux。遇到容器瞬间消失时，先按照 redroid 官方建议检查内核模块与 `dmesg -T`，再判断是否与本例相同。
+
+本机还需要加载 `nfnetlink`：
+
+```bash
+sudo modprobe nfnetlink
+```
+
+不同内核可能还需要 redroid 官方文档列出的 Binder 等模块。应以所用发行版、内核配置和 redroid 文档为准。
+
+### 2. 确定 GPU 节点
+
+先检查 DRM 设备：
+
+```bash
+ls -l /dev/dri
+```
+
+本文机器使用：
+
+```text
+/dev/dri/card1
+/dev/dri/renderD128
+```
+
+这些名称不是可复制的常量。独显、核显并存时，`card0`、`card1` 与 `renderD*` 的对应关系可能不同。先结合 `lspci -k`、驱动信息和实际渲染测试确定节点，再修改下面的命令。
+
+GPU 在这里也不是单纯的性能优化。没有正确启用宿主机 GPU 时，我观察到画面错误和严重卡顿，随后 SRC 图像识别失败、等待超时并反复重启游戏。排障链条应覆盖渲染结果，而不能只检查容器是否处于 `Up` 状态。
+
+### 3. 创建容器
+
+本文使用普通的 Android 12 镜像，没有使用 `_64only` 变体。本机验证过普通镜像中的 ARM 转译链路，适合运行 ARM64 游戏客户端。
+
+```bash
+REDROID_DATA="$HOME/Games/redroid/data"
+mkdir -p "$REDROID_DATA"
+
+sudo docker run -itd --privileged \
+  --device /dev/dri/card1:/dev/dri/card1 \
+  --device /dev/dri/renderD128:/dev/dri/renderD128 \
+  -v /dev/dri:/dev/dri \
+  -v /sys/kernel/debug:/sys/kernel/debug:ro \
+  -v "$REDROID_DATA:/data" \
+  -p 127.0.0.1:5555:5555 \
+  --name redroid \
+  redroid/redroid:12.0.0-latest \
+  androidboot.redroid_gpu_mode=host \
+  androidboot.redroid_gpu_node=/dev/dri/renderD128
+```
+
+其中 `/data` 挂载保存 Android 用户数据、游戏本体和登录状态。删除容器并重新创建时，只要保留这个目录，Android 数据仍会继续存在。不要在不了解内容的情况下删除数据目录。
+
+本文机器上，Podman 路线经常以状态 129 退出，且与 Android property 初始化故障混在一起，最终使用 Docker（Moby）跑通。这个结果不代表 redroid 本身不支持 Podman。建议先用一种容器运行时建立可工作的基线，再研究替换。
+
+### 4. 等待 ADB 就绪
+
+容器进入运行状态不代表 Android 已完成启动。连接后应轮询到设备状态为 `device`：
+
+```bash
+adb connect 127.0.0.1:5555
+adb -s 127.0.0.1:5555 get-state
+adb devices
+```
+
+一个简单的等待逻辑如下：
+
+```bash
+for i in {1..15}; do
+  if [[ "$(adb -s 127.0.0.1:5555 get-state 2>/dev/null)" == device ]]; then
+    break
+  fi
+  sleep 2
+  adb connect 127.0.0.1:5555 >/dev/null 2>&1 || true
+done
+```
+
+在 SRC 和 redroid 启停联动时，这个等待步骤很重要。否则 SRC 可能在 Android 尚未就绪时初始化设备并失败。
+
+## 验证 ARM 转译并安装游戏
+
+x86_64 redroid 需要 native bridge 才能运行 ARM/ARM64 应用。本文镜像的实测结果为：
+
+```bash
+adb -s 127.0.0.1:5555 shell getprop ro.dalvik.vm.native.bridge
+# libnb.so
+
+adb -s 127.0.0.1:5555 shell getprop ro.product.cpu.abilist
+# 包含 arm64-v8a
+```
+
+这两个结果说明基础转译环境已经出现。它们不能保证每个游戏版本都兼容；游戏更新后仍需重新验证启动、渲染和稳定性。
+
+从合法来源取得 Android APK 后，安装到指定设备：
+
+```bash
+adb -s 127.0.0.1:5555 install -r /path/to/StarRail.apk
+```
+
+本文使用的国服包名和启动 Activity 是：
+
+```text
+package:  com.miHoYo.hkrpg
+activity: com.miHoYo.hkrpg/com.mihoyo.combosdk.ComboSDKActivity
+```
+
+检查并手动启动：
+
+```bash
+adb -s 127.0.0.1:5555 shell pm list packages | grep com.miHoYo.hkrpg
+
+adb -s 127.0.0.1:5555 shell am start \
+  -n com.miHoYo.hkrpg/com.mihoyo.combosdk.ComboSDKActivity
+```
+
+建议用 scrcpy 直接观察画面：
+
+```bash
+scrcpy -s 127.0.0.1:5555
+```
+
+进入游戏后，将图像质量和分辨率调整到 SRC 支持的状态。SRC 官方安装文档建议模拟器采用平板模式和 1280×720。先确认游戏能稳定进入主界面、画面方向和分辨率正确、点击有效，再开始排查 SRC。
+
+## 配置 SRC 连接 redroid
+
+打开 SRC WebUI，在实例侧边栏进入“`SRC设置`”，设置以下项目：
+
+- 模拟器 Serial：`127.0.0.1:5555`；
+- 游戏服务器：本文为国服官方服（配置值 `CN-Official`）；
+- 游戏内文本语言：简体中文；
+- 截图方案：先使用 `ADB_nc`，异常时可切换普通 `ADB` 或 `scrcpy`；
+- 控制方案：`MaaTouch`；
+- ADB 重启：关闭，避免 SRC 干扰宿主机上其他 ADB 设备。
+
+对应的 `config/src.json` 核心内容如下。通常应通过 WebUI 修改配置，这里用于说明最终状态：
+
+```json
+{
+  "Alas": {
+    "Emulator": {
+      "Serial": "127.0.0.1:5555",
+      "GameClient": "android",
+      "PackageName": "CN-Official",
+      "GameLanguage": "cn",
+      "ScreenshotMethod": "ADB_nc",
+      "ControlMethod": "MaaTouch",
+      "AdbRestart": false
+    }
+  }
+}
+```
+
+不要把 Serial 留为 `auto`。当 `adb devices` 同时出现 `127.0.0.1:5555`、`emulator-5554` 或其他设备时，SRC 的自动选择会产生歧义。所有诊断命令也应显式使用 `adb -s 127.0.0.1:5555 ...`。
+
+### 截图方案的实测结果
+
+我在 Android 12、1280×720、游戏动态画面下对截图方法做过一次测试：
+
+| 方法 | 成功率 | 平均耗时 | 结果 |
+|---|---:|---:|---|
+| `ADB` | 50/50 | 508 ms | 可用，较慢 |
+| `ADB_nc` | 50/50 | 106 ms | 可用且稳定 |
+| `uiautomator2` | 50/50 | 526 ms | 可用，较慢 |
+| `scrcpy` | 50/50 | 110 ms | 可用，性能接近 `ADB_nc` |
+| `DroidCast` | 0/1 | — | 服务无法上线 |
+
+`ADB_nc` 随后的 1000 次连续截图全部成功，平均约 96 ms。这些数字只描述 2026-07-24 的本机测试，不代表其他 GPU、内核和 redroid 镜像的性能。战斗高负载下如果 `ADB_nc` 和 `scrcpy` 都超时，应进一步检查游戏进程、Binder、GPU 和宿主机内存压力。
+
+## 启动与验证 SRC
+
+在 redroid 已经就绪后启动 WebUI：
+
+```bash
+cd /path/to/StarRailCopilot
+conda activate src
+python gui.py
+```
+
+浏览器打开 `http://127.0.0.1:22367`，进入总览并启动实例。完整验证顺序建议固定为：
+
+1. `getenforce` 符合当前部署要求；
+2. `docker ps` 中 redroid 为 `Up`；
+3. `adb -s 127.0.0.1:5555 get-state` 返回 `device`；
+4. 游戏包存在，手动启动 Activity 成功；
+5. scrcpy 中画面和点击正常；
+6. SRC 能连续截图并识别主界面；
+7. 最后启用日常、副本等实际任务。
+
+这个顺序能把问题分成宿主机、Android、游戏和 SRC 四层。若第 4 步尚未通过，修改 SRC 识别代码通常没有帮助。
+
+## 可选：用 systemd 管理 redroid 与 SRC
+
+长期运行时，我将 WebUI、Android 容器和实际任务调度器拆成三个 `systemd --user` 服务：
+
+```text
+starrailcopilot.service            全天运行 gui.py，仅提供 WebUI
+redroid.service                    启停 redroid，并等待 ADB 就绪
+starrailcopilot-scheduler.service  运行 src.py，依赖 redroid.service
+```
+
+redroid 服务使用 `Type=oneshot` 和 `RemainAfterExit=yes`。启动脚本创建或启动容器并等待 ADB，停止动作则关闭容器：
+
+```ini
+[Unit]
+Description=redroid Android container
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/path/to/start-redroid.sh
+ExecStop=/usr/bin/sudo /usr/bin/docker stop redroid
+TimeoutStartSec=90
+TimeoutStopSec=30
+```
+
+Docker daemon 属于系统服务，不能由用户单元中的 `After=docker.service` 建立跨管理器依赖，应另外保证系统 Docker 服务已经启动。SRC 调度器通过 `Requires`、`After` 和 `BindsTo` 绑定 redroid：
+
+```ini
+[Unit]
+Description=StarRailCopilot scheduler
+Requires=redroid.service
+After=redroid.service
+BindsTo=redroid.service
+
+[Service]
+Type=simple
+WorkingDirectory=/path/to/StarRailCopilot
+ExecStart=/path/to/python src.py
+Restart=no
+TimeoutStopSec=30
+```
+
+WebUI 的 `config/deploy.yaml` 保持 `Webui.Run: null`，防止 `gui.py` 启动时自动拉起同一个实例。实际调度器由 systemd 单独运行：
+
+```yaml
+Webui:
+  WebuiHost: 127.0.0.1
+  WebuiPort: 22367
+  Run: null
+```
+
+不要同时在 WebUI 中点击“开始”和启动 `starrailcopilot-scheduler.service`，否则会产生两个调度器进程。我的部署还通过 timer 在每日固定窗口启动 redroid 和调度器，再按 `Scheduler.NextRun` 创建一次性补跑 timer。这属于资源优化层，可以在基本链路稳定后再增加。
+
+这里的 `BindsTo` 只跟踪 `redroid.service` 的 systemd 状态。因为该服务在启动脚本退出后保持 `active (exited)`，Docker 容器自行崩溃不会自动改变单元状态。需要更严格的故障联动时，应增加容器健康检查或让 systemd 直接跟踪前台容器进程。
+
+用户服务调用 `sudo docker` 时，还需要为对应命令设计范围尽量小的免密 sudo 规则，否则无人值守启动会卡在密码输入。不要给整个 shell 或不受限的 Docker 命令开放免密权限。
+
+## 常见故障
+
+### 容器创建后立即退出
+
+先看：
+
+```bash
+sudo docker ps -a
+sudo docker logs redroid
+dmesg -T
+```
+
+Docker 无日志时，`dmesg` 往往更关键。检查内核模块、Android property 初始化错误和 SELinux 状态。不要看到 Binder 字样就直接认定缺少 Binder 模块；本文机器的决定性问题是 SELinux 没有在内核层禁用。
+
+### ADB 显示 offline 或迟迟无法连接
+
+进入容器检查 Android 进程和日志：
+
+```bash
+sudo docker exec -it redroid sh
+# 容器内：ps -A、logcat
+```
+
+宿主机继续检查：
+
+```bash
+adb disconnect 127.0.0.1:5555
+adb connect 127.0.0.1:5555
+adb -s 127.0.0.1:5555 get-state
+```
+
+### 游戏能启动，但 SRC 一直识别失败
+
+依次确认：
+
+- 实际截图是否为 1280×720；
+- 游戏是否处于横屏且画面完整；
+- GPU 是否真的工作，是否出现黑屏、花屏或极低帧率；
+- SRC 的服务器和游戏语言是否匹配；
+- `ADB_nc` 是否连续返回正常图像；
+- 是否连接到了错误的 ADB serial。
+
+GPU 配置错误会同时制造性能问题和视觉识别问题。仅凭 `docker ps` 无法排除它。
+
+### 重启后数据消失
+
+确认容器始终把同一个宿主机目录挂载到 `/data`。`docker rm` 只应删除容器，不应删除该宿主机目录。
+
+## 总结
+
+redroid 接入 SRC 的关键不在于修改 SRC，而在于建立一条稳定、可观测的 Android 控制链：
+
+1. redroid 在当前内核和安全策略下稳定启动；
+2. 宿主机 GPU 正确渲染游戏；
+3. native bridge 能运行 ARM64 客户端；
+4. ADB 固定连接 `127.0.0.1:5555`；
+5. SRC 使用可用的截图和输入方案；
+6. 启动顺序保证 redroid 先就绪，SRC 调度器随后启动。
+
+在本文机器上，最终可用组合是 Docker、`redroid/redroid:12.0.0-latest`、host GPU、`ADB_nc` 和 `MaaTouch`。这补上了 SRC 官方文档中缺少的 Linux Android 容器环节，也保留了清晰的分层排障路径。
+
+## 参考资料
+
+- [StarRailCopilot 仓库](https://github.com/LmeSzinc/StarRailCopilot)
+- [StarRailCopilot 中文安装教程](https://github.com/LmeSzinc/StarRailCopilot/wiki/Installation_cn)
+- [在 Linux 下基于 redroid 部署 SRC（Discussion #1028）](https://github.com/LmeSzinc/StarRailCopilot/discussions/1028)
+- [redroid 官方文档](https://github.com/remote-android/redroid-doc)

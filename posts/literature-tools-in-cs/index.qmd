@@ -1,0 +1,55 @@
+---
+title: CS领域的文献相关工具
+date: '2025-10-21'
+date-modified: '2025-10-21'
+description: CS领域的文献相关工具的推荐，涵盖文献检索、热点追踪、引文关联、文献管理、文献阅读等方面。
+categories:
+- softwares
+- literature
+- websites
+---
+论文追新：
+- [HF daily papers](https://huggingface.co/papers/date/2025-10-14)：推荐热门论文，可以按每日/周/月查看。
+    - 可查看huggingface上的相关spaces、模型和数据集。
+    - 有社区评论功能，通常有投稿人对文章的简要介绍和资源链接（huggingface, github, arxiv等）。
+- [alphaxiv](https://www.alphaxiv.org)：推荐热门arxiv论文和数据集。
+    - 推荐排序依据：hot, comments, views, likes, github(按github库热度), recommend
+    - 提供AI摘要
+    - Paper页面可在线阅读了论文pdf
+    - Blog页面提供更详细的论文blog（可能是AI生成），以及AI生成的问题、方法、结果总结
+    - Resources页面提供BibTex引用格式、github repo地址、AI生成的论文播客
+    - 工具栏可AI提问、记录笔记、查看评论、查看相似论文
+- [Semantic Scholar](https://www.semanticscholar.org/)：根据收藏、阅读的文献推荐文献。
+    - 数量较少
+    - 个性化程度可能更高
+
+文献检索：
+- [Semantic Scholar](https://www.semanticscholar.org/)：更智能的关键字搜索（？）
+- [Google Scholar](https://scholar.google.com)：关键字搜索
+    - 文献较全面
+-  [alphaxiv](https://www.alphaxiv.org)：提供关键字和AI搜索，主要集中于arxiv
+    - 可以作为简单的文献检索、管理、阅读一站式工具
+    - 与AI的集成度高
+- [web of science](https://webofscience.clarivate.cn/wos/alldb/basic-search)：全面的关键字搜索
+    - 支持检索主题、标题、作者、正文等
+    - 需要学校购买数据库
+    - 文献传统检索的佼佼者
+
+引用关系：
+- [connected papers](https://www.connectedpapers.com):部分付费，每月免费查找引文5次
+- [litmaps](https://app.litmaps.com)：免费次数更多（？
+- [web of science](https://webofscience.clarivate.cn/wos/alldb/basic-search)：不能以图的形式查看引文关系，但可查找引用和被引论文
+    - 数据库更大（应该
+
+文献阅读：
+- [Scholaread](https://www.scholaread.cn/library)：外文文献重排、翻译效果最好
+    - 支持pdf重排、AI翻译、AI问答、文字高亮、笔记，兼具一定的文献管理能力
+    - 我主要用来阅读、翻译文献，这方面目前体验较好
+
+文献管理：
+- [Zotero](https://www.zotero.org/)：综合文献管理工具
+    - 免费。
+    - 插件丰富。但翻译插件较弱。
+    - 与AI集成度较低，插件一般基于api调用，需要购买api额度。
+    - 与浏览器、文献写作（word等）集成度高，适合作为中转站，当作文献管理工具。
+    - 建议在zotero上建立个人文献库，用来分类保存文献。

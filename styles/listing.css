@@ -1,0 +1,35 @@
+/* Full-width title and description, with date and categories in one row. */
+.quarto-listing-default .quarto-post.image-right {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.4em 0.75em;
+  align-items: start;
+}
+
+.quarto-listing-default .quarto-post .body {
+  display: contents;
+}
+
+.quarto-listing-default .quarto-post .listing-title {
+  grid-column: 1 / -1;
+  grid-row: 1;
+}
+
+.quarto-listing-default .quarto-post .metadata {
+  grid-column: 1;
+  grid-row: 2;
+  margin: 0;
+  padding: 0;
+  white-space: nowrap;
+}
+
+.quarto-listing-default .quarto-post .listing-categories {
+  grid-column: 2;
+  grid-row: 2;
+  padding-bottom: 0;
+}
+
+.quarto-listing-default .quarto-post .listing-description {
+  grid-column: 1 / -1;
+  grid-row: 3;
+}

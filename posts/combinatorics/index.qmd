@@ -1,0 +1,125 @@
+---
+title: 组合数学
+date: '2025-02-28'
+date-modified: '2025-02-28'
+description: 组合数学课程笔记
+categories:
+- math
+- combinatorics
+- draft
+---
+# 排列组合
+## 计数问题分类
+
+| 计数对象 | 有序           | 无序           |     |
+| ---- | ------------ | ------------ | --- |
+| 都不重复 | [排列](#集合的排列) | [组合](#集合的组合) | 集合  |
+| 允许重复 |              |              | 重集  |
+## 集合的排列
+### 圆排列
+集合$X$中互不相同的元素$x_1,\cdots,x_k$按顺时针排成圆圈，称为$X$的k元圆排列，其数目为$\frac{n!}{n}=n!$.
+### 线性排列
+又称为元排列。集合X的有序k元组($x_1,x_2,\cdots,x_k$)称为x的k元排列，元组中元素互不相同。含n个元素的集合中的k元排列数目记为$P(n,k)$.
+- $k>n$时， $P(n,k)=0$；
+- $k=n$时，$P(n,n)=n!$ （称为**全排列**）
+排列可以表示为元组的形式，例如：$(3,1,2)$.
+### 全排列
+全排列是线性排列在$k=n$时的特殊情况。
+### 置换
+置换（双射）：$1,2,\dots ,n$这$n$个元素的双射，如置换$\pi:1\mapsto 4,\ 2\mapsto 3,\ 3\mapsto 2,\ 4\mapsto 1$.
+置换是排列的另一种视角：
+全排列可以视为**置换**（双射），例如：排列$(3,1,2)$对应置换$\pi:1\mapsto 3,\ 2\mapsto 1,\ 3\mapsto 2$.
+### 循环分解
+长为$l$的**循环**$C\coloneqq(i,\pi(i),\pi^2(i),\cdots,\pi^{l-1}(i))$.
+置换$\pi$的**循环分解式**$C_1,C_2\cdots,C_k$，若$\pi$中长为$l$的循环有$\lambda_l$个$(1,2,\cdots,n)$，则称$\pi$是$1^{\lambda_1}2^{\lambda_2}\cdots n^{\lambda_n}$型的。
+### Cauchy公式
+$S_n$中$1^{\lambda_1}2^{\lambda_2}\cdots n^{\lambda_n}$型的置换个数为
+$$
+\frac{n!}{\lambda_1!\lambda_2!\cdots\lambda_n!\cdot
+1^{\lambda_1}2^{\lambda_2}\cdots n^{\lambda_n}}
+$$
+### 无符号第一类Stirling数
+$$C(n,k)\coloneqq\text{\# \{恰有k个循环的n元置换\}} $$
+规定：$C(0,0)=1;\ C(n,0)=0,n\geq1;\ C(n,k)=0,k> n$.
+满足递推关系
+$$
+C(n,k)=C(n-1,k-1)+(n-1)C(n-1,k) \quad
+n,k\geq1
+$$
+**推论**：$\sum^n_{k=0}C(n,k)x^k=x(x+1)\cdots(x+n-1)$
+    *Pf* . $F_n(x)\coloneqq RHS=$
+## 集合的组合
+**组合**定义：集合$X$的（元素互不相同的）无序k元组($x_1,\cdots,x_k$)称为$X$的$k$元组合，记为
+$$\binom{n}{k}\coloneqq\frac{(n)_k}{k!}=\frac{n!}{k!(n-k)!}$$
+二项式系数$\binom{n}{k}$有如下性质：
+$$\binom{n}{k}=\binom{n}{n-k}$$
+$$k\binom{n}{k}=n\binom{n-1}{k-1}$$
+$$\binom{n}{k}=\binom{n-1}{k-1}+\binom{n-1}{k}$$
+$$\binom{n}{k}=\binom{n-1}{k-1}+\binom{n-2}{k-1}+\cdots+\binom{k-1}{k-1}
+\tag{4}$$
+$$\binom{n}{k}=\binom{n-1}{k}+\binom{n-1}{k-1}+\cdots+\binom{n-k}{1}+\binom{n-k-1}{0}
+\tag{5}$$
+$$\sum^n_{k=0}\binom{n}{k}=2^n$$
+$$\sum^n_{k=0}(-1)^k\binom{n}{k}=0,\quad i.e.\sum_{k\%2=0}\binom{n}{k}=\sum_{k\%2=1}\binom{n}{k}=2^{n-1}$$
+$$\sum^r_{k=0}\binom{m}{k}\binom{n}{r-k}=\binom{m+n}{r},\quad m,n,r\in \mathbb{N}
+\tag{Vandermonde eq.}$$
+*Pf.* 从m+n个人(男生m名，女生n名)中选择r人。
+Specially, when $m=n=r,\ \sum^n_{k=0}\binom{n}{k}^2=\binom{2n}{n}$, denoted as 中心二项数.
+二项式定理$$(x+y)^n=\sum^n_{k=0}\binom{n}{k}x^ky^{n-k}$$
+## 重集的排列
+集合的可重复排列
+集合X的有序k元组$x_{1},\dots,x_{k}$称为X的k元可重复排列，其中$x_{i}\in X$可取相同值，记为$x_{1},x_{2},\dots,x_{k}$.
+*e.g.* $X=\{a,b,c\}$的2元字：$aa,ab,ac,ba,bb,bc,ca,cb,cc$
+*def.* let $X=\{ x_{1},\dots,x_{n} \}$,if $x_{i}$ appears $m_{i}$ times in a word ($i=1,\dots,n$),则称该字是$x^{m_{1}}_{1}\cdots x^{m_{n}}_{n}$型的。
+*th.* let $X=\{ x_{1},\dots,x_{n} \}$, given $m_{1},\dots,m_{n}\in \mathbb{N}\text{ and }m_{1}+\cdots+m_{n}=m$, then X 上的$x^{m_{1}}_{1}\cdots x^{m_{n}}_{n}$型字个数为$$\frac{m!}{m_{1}!m_{2}!\cdots m_{n}!}$$
+**多项式系数**$$\binom{m}{m_{1},m_{2},\dots,m_{n}}\coloneqq \frac{m!}{m_{1}!m_{2}!\cdots m_{n}!}$$
+*e.g.* $\mathrm{S}=\{ 3\cdot a,2\cdot b,4\cdot c \}$的8元字
+    $a^{3}b^2c^{3},a^{3}bc^4,$
+## 重集的组合
+集合的可重复组合
+*def.* 集合X的无序k元组$\{ x_{1},\dots ,x_{k} \}$称为X上的k元可重复组合，其中$x_{i\in X}$可取重复值。
+**重数**：$x_{i}$出现的次数，
+$$\left(\!\!\binom{n}{k}\!\!\right)\coloneqq \#\{\text{n元集的k元重集}\}$$
+*th.* 
+$$\left(\!\!\binom{n}{k}\!\!\right)=\binom{n+k-1}{k}$$
+$$ \left(\!\!\binom{n}{k}\!\!\right)=\frac{(n)^k}{k!} $$
+    *p.s.*  $\binom{n}{k}=\frac{(n)_{k}}{k!}$ 
+
+*cor.* 方程$x_{1}+\cdots+x_{n}=k$的非负整数解个数为$\binom{n+k-1}{k}$.不等式加松弛变量。变量带下界则构造新的变量使其非负。
+*def.* 称$[n]$的k元子集为$l$间隔的，如果其中任意两数之差$>l$.
+*th.* $$ \#\{ \text{[n]的l间隔的k元子集} \}=\binom{n-l(k-1)}{k} $$
+*e.g.* $[8]$的2间隔的3元子集：$\{ 1,4,7 \},\{ 1,4,8 \},\{ 1,5,8 \},\{ 2,5,8 \}$
+# 二项式系数
+$$ \forall n \in \mathbb{N} ,\binom{n}{k}\coloneqq 
+\begin{cases}
+\frac{n!}{k!_(n-k)!}, 0\leq k\leq n, \\
+0, k<0 \text{ or }k>n.
+\end{cases}$$
+esp:
+$$ \binom{n}{1}=n $$
+三角形数：$$ \binom{n}{2} = \frac{n(n-1)}{2}$$
+四面体数：$$ \binom{n}{3}=\frac{n(n-1)(n-2)}{6} $$
+## 性质
+- 对称 $$ \binom{n}{k}= \binom{n}{n-k}$$
+- 递推 （与杨辉三角有关）$$ \binom{n}{k}\binom{n-1}{k-1}+\binom{n-1}{k} $$ $$ \binom{n}{k}=\binom{n-1}{k-1}+\binom{n-2}{k-1}+\cdots+\binom{k-1}{k-1} $$ $$ \binom{n}{k}=\binom{n-1}{k}+\binom{n-2}{k-1}+\cdots+\binom{n-k+1}{0} $$
+- 行和 $$ \sum_{k=0}^n\binom{n}{k}=2^n $$
+- 行交错和 $$ \sum_{k=0}^n(-1)^k\binom{n}{k}=0\ (n\geq1) $$
+- 行平方和 $$ \sum_{k=0}^n\binom{n}{k}^2=\binom{2n}{n} $$
+### 格路
+二项式系数的一种表示，可以为二项式系数提供一种组合解释。
+从(0,0)到(k,n-k)，只走(1,0)或(0,1)方向的所有可能路径数目为$\binom{n}{k}$。因为到每一个点的前序点有2个
+## 二项式定理
+$$n\in \mathbb{Z}^+,\forall x,y:\quad (x+y)^n=\sum_{k=0}^n\binom{n}{k}x^ky^{n-k} $$
+代数证明：数学归纳
+*cor.* $$ n\in \mathbb{Z},\forall x:\quad (x+1)^n=\sum_{k=0}^n\binom{n}{k}x^k $$
+可由此推出前面的部分性质:$\sum_{k=0}^n\binom{n}{k}=2^n$,$\sum_{k=0}^n(-1)^k\binom{n}{k}=0\ (n\geq1)$.
+## 二项式系数的正交性
+## 单峰性
+*def.* $(a_{n})_{n\geq_{0}}=a_{0},a_{1},\dots$，使得$a_{0}\leq a_{1}\leq\cdots\leq a_{m}\geq a_{m+1}\geq\cdots$，则称数列具有单峰性。
+### 二项式系数的单峰性
+峰值在$\left\lfloor  \frac{n}{2}  \right\rfloor$取得
+分奇偶项讨论，证明奇偶项各自的单峰性。$n$ 为奇数时，相邻两项相等且均为峰值。
+*cor.* 对固定的$n$，数列$\binom{n}{0},\binom{n}{1},\dots,\binom{n}{n}$的峰值为$\binom{n}{\left\lfloor  \frac{n}{2}  \right\rfloor}=\binom{n}{\left\lceil  \frac{n}{2}  \right\rceil}$
+## 对数凹性
+*def.* 实数数列$(a_{n})_{n\geq_{0}}=a_{0},a_{1},\dots$，若$2a_{k}\geq a_{k-1}+a_{k+1}\ (\forall k\geq1)$，则称数列是**凹的**，若$a_{k}^2\geq a_{k-1}a_{k+1}\ (\forall k\geq 1)$，则称数列是**对数凹的**。
+*th.* 对于正数列，凹$\implies$对数凹$\implies$单峰

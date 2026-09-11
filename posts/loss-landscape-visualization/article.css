@@ -1,0 +1,12 @@
+/* Keep visualization outputs inside the article on narrow screens. */
+.marimo-cell-output, marimo-island {
+  min-width: 0;
+  max-width: 100%;
+}
+.landscape-frame {
+  display: block;
+  width: 100%;
+}
+@media (max-width: 600px) {
+  .landscape-frame { height: 1240px !important; }
+}

@@ -1,0 +1,145 @@
+---
+title: 在 Redroid 里运行《绝区零》的失败经历：x86 转译与 DGX Spark ARM64 图形栈
+date: '2026-08-07T00:00:00'
+description: 记录一次把《绝区零》自动化迁移到 Linux + Redroid 的尝试：x86_64 路线受 ARM native bridge 兼容性阻塞，DGX
+  Spark ARM64 路线移除了转译层后又卡在 Android 图形栈，自动化改造最终暂停在游戏运行这一前置条件上。
+categories:
+- softwares
+- redroid
+- linux
+- aigc
+---
+
+我想把 StarRailCopilot（SRC）等自动化游戏项目的经验迁移到《绝区零》上。计划很明确：沿用 SRC 的 ADB、截图、触控和调度能力，参考 OneDragon 的战斗状态、优先级抢占和闪光检测，再用 MaaTouch 或 minitouch 做 Android 多点触控。
+
+我同时参考了几个《绝区零》自动化项目，包括 OneDragon、ZenlessZoneZero-Copilot、ZenlessZoneZero-Auto 和 ZA-Lite。它们分别提供了状态机、多点触控、固定连招、HSV 检测和模型检测等思路。
+
+所有自动化工作的前提是游戏能稳定运行。我的尝试卡在这一步。本文按经历整理两条路线：x86_64 Redroid 和 DGX Spark ARM64 Redroid。
+
+## x86_64 Redroid 部署
+
+x86_64 路线使用 Redroid 12。为了隔离环境，我给《绝区零》单独准备了容器、独立数据卷和独立 ADB 入口。容器固定 1280×720 分辨率，通过 ADB 安装国服 3.1.0 APK。APK 来自 TapTap，安装前做了文件校验。
+
+这套部署的优势很直接：Android 环境独立，ADB、截图、输入、日志和包管理都可以通过标准工具完成。自动化程序继续运行在 Linux 主机上。
+
+## x86 第一次失败：stock bridge 卡在登录页
+
+国服《绝区零》的 Android 包主要使用 ARM64 native 库。x86_64 Redroid 需要通过 ARM native bridge 执行这些库。
+
+stock Redroid 12 可以启动游戏，也可以显示登录面板。失败表现如下：
+
+- 鼠标点击没有界面反馈；
+- ADB 触摸没有界面反馈；
+- 截图长期保持同一画面；
+- Android InputDispatcher 已经把触摸事件送到游戏窗口；
+- UnityMain 线程持续占满一个 CPU 核心。
+
+日志和采样把问题定位到 `libndk_translation.so`。游戏的 `libunity.so` 执行 AArch64 `WFE` 指令，stock bridge 报错：
+
+```text
+Undefined instruction 0xd503205f
+```
+
+`0xd503205f` 反汇编为 `wfe`。随后 UnityMain 进入 native bridge 的 guest signal / `HandleNoExec` 循环。Android 输入链路仍然正常，Unity 已经无法继续处理登录界面。
+
+我也试过官方 Redroid 11 和 Redroid 14。Redroid 11 在另一条 ARM64 指令上直接 `SIGILL`。Redroid 14 使用同一类 translator，无法解决 `WFE` 问题。官方镜像路线到这里暂停。
+
+## x86 第二次失败：R136 bridge 进入游戏后崩溃
+
+接下来我替换 native bridge。可用组合来自 ChromeOS zork R136，核心组件包括：
+
+- `libndk_translation.so`；
+- `libndk_translation_exec_region.so`；
+- binfmt runner；
+- 匹配的一组 host proxy；
+- ARM64 guest `libnative_bridge_vdso.so`。
+
+我基于 Redroid 12 制作了一个包含 R136 bridge bundle 的测试镜像。这个组合修复了登录页。全新数据目录里可以通过首次协议页，手机号输入框可以获得焦点，协议复选框可以正常切换。后续我完成了账号登录和 32.83 GB 完整资源下载。数据更新后重新登录也正常，可以到达“点击进入游戏”页面。
+
+点击“进入游戏”后，主进程在 6 到 11 秒内退出到 Android 桌面。多次 tombstone 都记录同一类 native crash：
+
+```text
+Guest call didn't restore sp:
+expected ...fd0
+actual   ...fc0
+```
+
+这个错误来自 R136 `libndk_translation.so` 的 guest 调用栈检查。点击进入游戏后，游戏加载 ARM64 `libtersafe2.so`，并创建动态生成的 guest 线程。低侵入 uprobe 记录到失败线程从匿名内存页执行 ARM64 代码。入口执行 `sub sp, sp, #0x10`，返回 bridge 时这 16 字节栈帧没有恢复。bridge 检查到 `actual SP = expected SP - 0x10` 后主动 `SIGABRT`。
+
+这次崩溃发生在 `libtersafe2.so` 动态代码路径和 R136 binary translator 的交界处。资源下载、输入链路和 GPU 都没有指向本次 crash 的直接原因。删除或修改 `libtersafe2.so`、修改 APK、关闭 SP 检查都会带来反作弊、完整性校验和账号风险，我没有继续走这些方向。
+
+x86_64 + Redroid 路线最终停在这里。
+
+## 自动化改造同步暂停
+
+SRC 的设备层很适合作为改造起点。它已经包含 ADB、scrcpy、MaaTouch、minitouch、截图和任务调度。源码拆解后，我得到几个结论：
+
+- SRC 的 scrcpy 后台持续解码，公开截图 API 固定 10 FPS，并且等待调用之后产生的新帧。它需要改造成“读取最新帧”的低延迟接口。
+- MaaTouch 协议可用，Redroid 里曾报告 10 个触点和 1280×720 坐标。现有封装需要补单写 actor、触点状态机、发送锁和 `release_all()`。
+- 《绝区零》战斗需要同时保持摇杆、攻击、闪避和切人。普通 ADB 点击无法承担多点触控 fallback。
+- OneDragon 的状态记录、优先级抢占和动作序列值得参考。Windows 截图、键鼠输入、音频识别、PC 端坐标和模型需要重做 Android 适配。
+
+我计划的最小链路是：
+
+```text
+持续视频流 → 最新帧槽 → 闪光检测 → 单线程仲裁 → MaaTouch 常驻连接
+```
+
+游戏无法进入主界面和战斗场景后，这条链路缺少真实验证对象。没有战斗画面，就无法采样真实视频，也无法验证端到端延迟、触控残留、闪避触发时机和连续战斗稳定性。自动化改造因此暂停。
+
+## DGX Spark ARM64 Redroid 部署
+
+x86 的两个阻塞点都来自 native bridge。我随后把方向转到 ARM64 主机，目标是让游戏原生执行 ARM64 代码。
+
+DGX Spark / NVIDIA GB10 路线使用 Ubuntu 24.04、AArch64 和 4 KB 页。环境包含 Docker、binderfs、memfd、ADB、FFmpeg、Mesa 诊断工具，以及 QEMU / VirGL / Venus 诊断路径。
+
+主测试容器使用 ARM64 的 Redroid 12 `64only` 镜像，固定 1280×720 分辨率和 30 FPS。这里必须使用 `64only` 镜像。普通 ARM64 镜像会启动一些 32 位服务，GB10 主机无法执行 AArch32，系统日志会反复出现 `Exec format error`。
+
+ARM64 路线确实消除了 x86 上的 translator 问题。游戏进程原生执行 ARM64 代码，`ro.dalvik.vm.native.bridge=0`，进程中没有 `libndk_translation`、`libhoudini` 或 `libnb.so`。
+
+## DGX Spark 失败：图形初始化过不了
+
+DGX Spark 上测试了几条图形路径：
+
+- Android 12 Redroid guest GPU；
+- Android 15 Redroid guest GPU；
+- 直接映射 NVIDIA DRM 的 host GPU；
+- NVIDIA Container Runtime；
+- QEMU 8.2 + VirGL；
+- QEMU 9.2.4 + resource blob + Venus + cros gralloc。
+
+guest GPU 路径下，Android 可以启动，ADB、截图和触摸都可用。游戏启动后提示硬件不满足要求。继续后，Unity 报错并退出：
+
+```text
+TextureCubeArray is not supported on this platform/GPU
+signal 11 (SIGSEGV), fault addr 0x4
+```
+
+Android 12 和 Android 15 都复现了这个结果。
+
+host GPU 路径更早失败。Redroid 的 Android 图形 HAL 走 Mesa / GBM，宿主使用 NVIDIA proprietary `nvidia-drm`。日志显示 gralloc 无法打开设备，SurfaceFlinger 无法稳定启动。NVIDIA Container Runtime 也没有提供 Android 所需的 gralloc、hwcomposer 和 Vulkan HAL。
+
+QEMU + Venus 路径更接近可用。最终环境可以看到 virtio-gpu 的 Venus capset，也可以设置 `ro.hardware.vulkan=virtio` 和 cros gralloc。游戏启动后仍然创建 GLES 上下文，没有创建 Vulkan device：
+
+```text
+createdGlesContext = 1
+createdVulkanDevice = 0
+```
+
+随后继续触发同一个 `TextureCubeArray is not supported on this platform/GPU` 和 Unity `SIGSEGV`。
+
+ARM64 原生执行解决了 CPU ISA 问题。DGX Spark 上的新阻塞点是 Android 图形栈。当前 Redroid / VirGL / Venus / NVIDIA GB10 组合无法向游戏提供需要的图形能力。游戏没有进入登录流程，所以我没有在这台机器上登录账号，也没有下载完整资源和进行战斗测试。
+
+## 结论
+
+这次尝试得到三个判断。
+
+第一，x86_64 Redroid 的主要风险是 ARM native bridge 兼容性。登录页显示成功只能说明渲染走到早期阶段。主界面和安全组件会触发更多 ARM64 指令、动态代码和线程边界问题。
+
+第二，ARM64 主机可以移除 native bridge 风险。图形栈会成为新的关键变量。Redroid guest GPU、host GPU、VirGL、Venus 都需要 Android HAL、gralloc、Vulkan / GLES 能力和宿主驱动匹配。NVIDIA 数据中心驱动不会自动变成 Android 游戏可用的 GPU。
+
+第三，自动化框架改造应该放在稳定运行之后。SRC、OneDragon、MaaTouch、scrcpy、HSV 检测和 ONNX 闪光分类都能组成技术路线。它们需要一个可以进入主界面并稳定战斗的平台。
+
+后续我会优先用原厂 ARM64 Android 实机建立基线。实机的 OEM GPU 驱动、真实 Android HAL 和无 translator 环境更接近游戏支持对象。实机能稳定进入战斗后，再继续低延迟视频、MaaTouch 多点输入、闪光检测和抢占式连招。
+
+Redroid 仍然适合自动化研究。这次经历说明它暂时无法作为《绝区零》的运行底座。

@@ -1,0 +1,172 @@
+---
+title: 基于hexo搭建博客
+date: '2025-03-10'
+date-modified: '2025-07-30'
+description: '使用Redefine主题，基于hexo框架搭建静态博客。包含配置：MathJax支持、瀑布流相册。TODO: github pages,
+  obsidian联动.'
+categories:
+- web
+- blog
+---
+> 说明：本文在Ubuntu24.04.2LTS下配置，在`redefine 2.8.4`上可用。
+# Hexo框架
+静态blog框架[hexo](https://hexo.io/)。以npm包形式发布，可在终端操作，支持markdown，可快速部署到github-pages，有丰富的插件和主题可选，使用[yaml](https://yaml.org/)文件进行配置。
+
+## pandoc渲染器
+为使得markdown中的数学公式能正确渲染，使用[hexo-renderer-pandoc](https://github.com/hexojs/hexo-renderer-pandoc)渲染器替代hexo默认的[hexo-renderer-marked](https://github.com/hexojs/hexo-renderer-marked)渲染器。
+该渲染器使用[pandoc](https://pandoc.org/)作为渲染引擎，pandoc是功能十分强大的文档格式转换器，具有将markdown渲染为html的功能。
+### 安装pandoc
+参见[pandoc安装指南](https://pandoc.org/installing.html)
+### 配置
+`_config.yml`文件对项目进行配置，其中不应包含主题的相关配置。
+此处提供`hexo-renderer-pandoc`插件的配置，让hexo能够正确渲染mathjax和obsidian的markdown语法：
+在`_config.yml`中添加
+```yaml
+# hexo-renderer-pandoc
+pandoc:
+    args:
+        "-f"
+        - "markdown+hard_line_breaks-blank_before_header+lists_without_preceding_blankline" # NB
+        - "-t"
+        - "html"
+        - "--mathjax"
+```
+
+其中`-f`的参数`markdown+hard_line_breaks-blank_before_header`规定了markdown的方言种类：
+- `+hard_line_breaks`: 单回车换行
+    - 默认md语法中，一个回车会被渲染成空格、两个回车（一个空行）才被渲染成一个换行
+- `-blank_before_header`: 标题前不需要空行
+    - 默认md语法中，各级标题前需要有空行才会被正确渲染
+- `+lists_without_preceding_blankline`: 列表前后不需要空行
+    - 默认md语法中，列表前后需要有空行才会被正确渲染
+
+这些特性更符合obsidian的markdown格式。
+### 备选渲染器
+可选择[hexo-renderer-kramed](https://github.com/sun11/hexo-renderer-kramed)渲染器作为替代，它使用[kramed](https://github.com/GitbookIO/kramed)作为渲染引擎，速度更快，但对MathJax支持不完全。
+
+## MathJax数学公式支持
+使用[hexo-filter-mathjax](https://github.com/next-theme/hexo-filter-mathjax)插件提供服务端的MathJax渲染(Server side Renderer Plugin )。
+### 安装hexo-renderer-pandoc
+在hexo项目目录中执行：
+```shell
+npm uninstall hexo-renderer-marked  # 删除默认渲染器  
+npm install hexo-renderer-pandoc # 安装hexo-renderer-pandoc
+```
+### 安装hexo-filter-mathjax
+```shell
+npm install hexo-filter-mathjax
+hexo clean  # 清除hexo已渲染的文件
+```
+### 配置
+在`_config.yml`中添加
+```yaml
+# hexo-filter-mathjax
+# this snippet from: https://github.com/next-theme/hexo-filter-mathjax?tab=readme-ov-file#options
+mathjax:
+  tags: none # or 'ams' or 'all'
+  single_dollars: true # enable single dollar signs as in-line math delimiters
+  cjk_width: 0.9 # relative CJK char width
+  normal_width: 0.6 # relative normal (monospace) width
+  append_css: true # add CSS to pages rendered by MathJax
+  every_page: false # if true, every page will be rendered by MathJax regardless the `mathjax` setting in Front-matter
+  packages: # extra packages to load
+  extension_options: {}
+    # you can put your extension options here
+    # see http://docs.mathjax.org/en/latest/options/input/tex.html#tex-extension-options for more detail
+```
+## 本地图片引用
+使用[hexo-asset-img](https://github.com/yiyungent/hexo-asset-img)插件，在生成网页时将markdown中的图片引用从相对路径改为绝对路径，从而避免网页图片的路径错误。
+### 安装
+在Hexo项目目录下执行`npm install hexo-asset-img --save`安装插件
+### 配置
+在`_config.yml`中添加配置`post_asset_folder: true`。此配置的作用是：在使用`hexo new post [post_name]`新建post时，会同时新建一个与新的post同名的文件夹(形式上是上述命令中的`post_name`，后文称作附件文件夹)用于存放markdown中引用的附件。
+### 说明
+此插件仅会将post中对附件文件夹中图片引用从相对路径修改为绝对路径，对其他位置图片的引用不起作用。因此，确保文章中的图片全部保存在附件文件夹中。
+
+# Redefine主题
+[Redefine](https://redefine-docs.ohevan.com/)是Hexo框架的主题之一，配置比较简单，并且界面好看。
+
+> 本教程基于`2.8.4`，在`2.8.5`(Jul30,2025时的最新版)上会出现一些显示问题
+
+## 安装与更新
+本节内容都需要在hexo项目目录下进行。
+
+两种安装方法
+- 使用npm安装`npm install hexo-theme-redefine@latest`
+- 使用git安装`git clone https://github.com/EvanNotFound/hexo-theme-redefine.git themes/redefine`
+
+上述两种方法分别使用如下方式更新
+- `npm install hexo-theme-redefine@latest`（与安装相同）
+- `cd themes/redefine && git pull`
+## 自定义图像和图标
+
+## 字体配置
+> 文档中并未详细解释字体配置的具体步骤，这里是我尝试后总结的，可能并非最佳实践。
+
+## 瀑布流相册
+本节基于[Redefine文档](https://redefine-docs.ohevan.com/zh/page_templates/masonry)，对此文档进行补充。
+> 此特性是最近开发的，有一些不完善的地方，文档似乎也不太完整。
+### 创建相册页面
+在Hexo项目目录下，使用如下命令创建页面(名称任意，此处命名为`masonry`)：
+```sh
+hexo new page masonry
+```
+若选用其他名字作为页面名，只需将本节所有`masonry`替换为你起的名字。
+打开该页面的markdown文件(`source/masonry/index.md`)，在front-matter中添加下面一行：
+```markdown
+template: masonry
+```
+添加后的文件示例如下：
+```markdown
+---
+
+title: Gallery
+date: 2024-01-01
+updated: 2024-02-01
+layout: page
+template: masonry
+
+---
+```
+`title`将显示为相册页的标题。
+### 配置相册内容
+在你的 Hexo 项目的 `source` 文件夹里增加 `_data` 文件夹（如果已有则跳过）。在 `_data` 文件夹下新增 `masonry.yml` 文件。在 `masonry.yml` 文件里面按照如下格式配置相册信息：
+```yaml
+- image: 图片 URL
+  title: 图片标题
+  description: Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec euismod
+ 
+- image: https://picsum.photos/id/12/2500/1800
+  title: Lorem ipsum
+  description: Lorem ipsum dolor sit amet
+```
+### 在导航栏中添加相册入口
+修改Redefine主题配置文件(`_config.redefine.yml`)的`navbar.links`字段：
+（可以将入口设置在二级菜单中）
+```yaml
+navbar:
+    links:
+        相册: # 导航栏中显示的页面入口名称，可自定义
+            icon: fa-solid fa-image # 图标
+            path: /masonry/ 
+        # 下面是二级菜单入口实例
+        first-level-menu:
+            icon: fa-solid fa-images
+            submenu:
+                Gallery: /masonry/ # 二级菜单不支持图标
+```
+### 多相册
+采用上述类似方法，保证页面名称(上文的`mansory`)不同即可。
+### 说明
+在 Hexo 中，`_data` 文件夹内的 yaml 文件会被自动加载，并赋值给全局变量（如`site.data`），这使得模板可以直接访问其中的数据。
+也就是说，`source/_data/masonry.yml`中的信息会被添加到位于`source/masonry/index.md`的模板中。那么`masonry`模板就自带了图片。
+具体解释如下：
+- 自动加载数据
+    将 `masonry.yml` 放置在 `source/_data` 目录下，Hexo 会自动将该文件解析，并将其中的数据存储到 `site.data.masonry` 中。这意味着无论在哪个模板中，都可以通过该变量访问图片列表和其他配置。
+- 模板读取数据
+    而 `mansory` 模板放置在 `source/mansory/` 目录下，模板在生成页面时，会引用 `site.data.masonry` 中的图片信息，并按照预先定义好的布局逻辑（例如瀑布流布局）来渲染页面。这样就能正确配置出瀑布流相册。
+# 部署与日常使用
+## github-pages部署
+部署在github-pages，免费、相对稳定（但可能需要翻墙），并且hexo支持快速部署。
+
+## Hexo × Obsidian

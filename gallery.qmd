@@ -1,0 +1,18 @@
+---
+title: "Gallery"
+toc: false
+page-layout: full
+lightbox: true
+format:
+  html:
+    css: styles/gallery.css
+---
+
+::: {.gallery-masonry}
+![FomaPan400, NikonFM, Nikkor-H Auto 50mm f/2](images/FomaPan400-2026-08-27-0003.jpg)
+
+![FomaPan400, NikonFM, Nikkor-H Auto 50mm f/2](images/FomaPan400-2026-08-27-0016.jpg)
+
+![FomaPan400, NikonFM, Zeiss Distagon ZF.2 25mm f/2.8](images/FomaPan400-2026-08-27-0037.jpg)
+:::
+
