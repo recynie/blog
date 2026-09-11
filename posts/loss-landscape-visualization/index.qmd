@@ -238,9 +238,7 @@ catch(e) { document.getElementById('app').textContent='Visualization failed: '+e
 mo.Html('<iframe class="landscape-frame" title="Loss landscape visualization" style="width:100%;height:940px;border:0" srcdoc="' + html.escape(document, quote=True) + '"></iframe>')
 ```
 
-### 保存动画
-
-设置 **Export frames** 后，点击 **Export GIF** 或 **Export MP4**，生成完成后通过下载链接保存。首次导出需要额外加载约 32 MB 的 ffmpeg.wasm 资源，编码在浏览器中完成。帧数越多，所需时间和内存越大；移动设备建议从较少帧数开始。3D 视图需要浏览器支持 WebGL。
+3D 视图需要浏览器支持 WebGL。较高的网格精度会增加计算量，移动设备建议从默认配置开始。
 
 ## 4. 如何理解这张地形图
 

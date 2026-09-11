@@ -1,99 +1,92 @@
-# Yukiguni · Quarto
+# Yukiguni
 
-独立的 Quarto 博客，使用内置 zephyr 主题。内容、图片、样式和扩展均位于本项目中。仅用于本地构建和预览，没有配置云端发布。
+Yukiguni 是一个使用 [Quarto](https://quarto.org/) 构建的个人博客，收录学习笔记、研究综述、工程实践和摄影作品。文章以中文为主，使用 Markdown 与数学公式组织内容，部分文章提供可在浏览器中运行的交互计算。
+
+源码仓库：[recynie/blog](https://github.com/recynie/blog)，源码分支为 `main`。
+
+## 内容
+
+- **数学与机器学习**：组合数学、概率论、Neural ODE、Transformer、PPO / GRPO，以及神经网络损失地形。
+- **科研工具与自动化研究**：文献工具、自动化研究系统及相关方法调查。
+- **开发与系统实践**：Linux 环境、Python 工具、容器、编辑器和应用部署记录。
+- **摄影**：Gallery 以响应式瀑布流展示照片，支持灯箱查看。
+
+首页提供按日期排列的文章列表，以及分类、排序和筛选功能；站内搜索用于查找文章内容。
+
+## 技术实现
+
+### 静态网站
+
+Quarto 将 `.qmd` 源文件构建为 HTML，输出到 `_site/`。网站采用内置 Zephyr 主题，通过少量 CSS 调整配色、文章列表和图库布局。导航、目录、搜索和图片灯箱使用 Quarto 原生功能。
+
+数学公式由 MathJax 渲染，额外启用 `mathtools` 扩展。普通文章默认关闭代码执行，构建时无需运行文章中的命令或代码。
+
+### 交互式损失地形
+
+[《可视化损失地形：神经网络的训练轨迹》](posts/loss-landscape-visualization/index.qmd) 使用 `quarto-marimo` 将响应式 Python 单元嵌入正文：
+
+- **NumPy** 实现小型神经网络的 Adam 训练、参数轨迹投影与局部平面融合。
+- **marimo / Pyodide** 在浏览器中管理依赖和执行 Python，提交表单后更新计算结果。
+- **Plotly** 展示真实训练 MSE、二维热力图和三维地形，支持播放、暂停、复位及时间条控制。
+
+训练参数与地形参数使用独立表单，调整地形设置时复用已有训练轨迹。图表在窄屏下上下排列。不提供 GIF/MP4 导出，也不包含 ffmpeg 编码资源。
+
+构建期生成初始结果，浏览器运行时加载完成后支持交互计算。首次访问需要联网下载运行时和依赖；3D 视图需要 WebGL，较大的计算会占用浏览器 CPU 和内存。MathJax 和部分文章图片也依赖外部网络，因此网站不保证离线可用。
 
 ## 本地使用
 
-```bash
-# CLI 由 Homebrew 管理
-brew install --cask quarto
-quarto --version
+### 环境
 
-# 构建；输出在 _site/
+- Quarto **≥ 1.9.20**，满足所用扩展的要求。
+- [uv](https://docs.astral.sh/uv/)，用于管理 Python 构建依赖及运行校验脚本。
+- Python **≥ 3.11**，可由 uv 管理。
+
+Quarto 安装方式见[官方说明](https://quarto.org/docs/get-started/)。仓库已包含 `quarto-marimo` **0.5.0**；交互文章的 front matter 声明 `marimo==0.24.0` 和 `numpy>=2,<3`，扩展通过 uv 管理其环境。
+
+```bash
+# 构建全站
 quarto render
 
-# 验证文章输出、搜索索引、草稿隔离和本地链接
+# 校验构建结果
 uv run scripts/verify.py
 
-# 仅监听本机，不自动打开浏览器
+# 本机预览
 quarto preview --host 127.0.0.1 --port 4200 --no-browser
 ```
 
-访问 <http://127.0.0.1:4200/>。更新 CLI 使用 `brew upgrade --cask quarto`。
+预览地址为 <http://127.0.0.1:4200/>。校验脚本检查文章输出、非空文章的搜索收录、草稿隔离，以及生成 HTML 中的本地链接和资源路径。浏览器中的 Python 交互需要另行验证。
 
-### 局域网预览
+## 写作与维护
 
-```bash
-quarto render
-# 只开放生成的站点；绑定 Wi-Fi 地址，地址变化后需替换
-uv run --no-project python -m http.server 4201 --bind 10.5.37.225 --directory _site
+### 文章
+
+每篇文章放在 `posts/<文章名>/index.qmd`，可在同一目录放置专属样式和资源。例如：
+
+```yaml
+---
+title: "文章标题"
+date: 2026-09-11
+categories: [Python]
+description: "文章摘要"
+---
 ```
 
-同一局域网设备访问 <http://10.5.37.225:4201/>。防火墙需要允许 TCP 4201；当前 Wi-Fi 防火墙区域已放行此端口，无需修改规则。此服务为临时静态服务，无登录验证、无开机自启，仅在可信局域网使用。更新内容后运行 `quarto render`；服务仅暴露 `_site/`，不提供项目源文件和草稿目录。
+日期使用 ISO 格式，更新日期填写 `date-modified`。分类和标签统一使用 `categories`。`posts/_metadata.yml` 提供共享作者信息、标题样式和 Markdown 解析设置。
 
-### Tailscale 访问
+本地草稿放在 `drafts/<文章名>/index.qmd`，设置 `draft: true`。`drafts/` 同时排除于 Git 提交和全站渲染；克隆仓库时不会获得这些草稿。发布时将文章目录移入 `posts/`，删除 `draft: true`，检查内容及资源后重新构建。单独添加 `draft` 分类标签不会隐藏文章。
 
-在局域网服务之外，单独绑定本机 Tailscale IPv4 地址：
+### 图片与样式
 
-```bash
-uv run --no-project python -m http.server 4201 --bind 100.73.186.123 --directory _site
-```
+共享图片位于 `images/`。向图库添加照片时，在 `gallery.qmd` 的 `.gallery-masonry` 容器内插入图片，各图片之间保留空行。
 
-已连接同一 tailnet 且访问策略允许的设备可访问 <http://100.73.186.123:4201/>。局域网入口保持不变；未启用公网 Funnel。此服务同样无开机自启。
+全站配色、首页列表和图库样式分别位于 `styles/colors.css`、`styles/listing.css` 和 `styles/gallery.css`。交互文章的实现来源、改动说明和第三方许可证保存在文章目录中。
 
-## 内容组织
+完整目录索引和面向代理的维护约定见 [AGENTS.md](AGENTS.md)。
 
-- `posts/<文章名>/index.qmd`：已发布文章，使用 Quarto 常规目录和 URL。
-- `drafts/<文章名>/index.qmd`：8 篇草稿，带有 `draft: true`，排除在全站渲染范围之外，并通过 `.gitignore` 排除，保留在本地。
-- `index.qmd`：原生文章列表、分类、排序与筛选。
-- `gallery.qmd`：响应式瀑布流图库，使用 Quarto 原生 Lightbox 放大和切换图片。
-- `styles/gallery.css`：仅用于图库的样式；桌面三列、平板两列、手机单列，保留图片比例。
-- `styles/listing.css`：首页列表样式；标题和摘要占满条目宽度，日期与分类标签同排显示。
-- `styles/colors.css`：顶部导航栏使用近白灰蓝色（`#dce5ed`），标题 banner 使用更浅的近白灰蓝色（`#eef3f7`），保留明暗层次，配深色文字保证可读性；页面背景保持 Zephyr 默认。
-- `images/`：站点本地图片。
-- `scripts/verify.py`：仅依赖当前项目和 Python 标准库的构建校验。
-- `_quarto.yml`：网站配置；代码执行默认关闭。
-- `includes/mathjax.html`：启用 MathJax `mathtools` 扩展，支持 `\coloneqq` 等命令；扩展随 MathJax 从 CDN 加载。
+## 部署
 
-新文章可直接放到 `posts/<新文章名>/index.qmd`。发布草稿到本地文章列表时，将其目录移入 `posts/` 并删除 `draft: true`。
+部署目标是 **Cloudflare Pages 从 GitHub 的 `main` 分支构建网站**，发布目录为 `_site/`。当前仓库尚未配置云端构建脚本和自动部署；接入时需要安装 Quarto、uv 及 Python 构建环境，并确定网站域名。
 
-### 添加图库图片
+当前源码构建的站点已移除超过 Cloudflare Pages 单文件 25 MiB 限制的 ffmpeg 资源。后续新增大资源时仍需检查输出文件大小。
 
-在 `gallery.qmd` 的 `.gallery-masonry` 容器内添加图片，每张之间空一行：
-
-```markdown
-![图片说明](images/example.jpg){group="gallery" loading="lazy"}
-```
-
-相同的 `group="gallery"` 让图片在灯箱内前后切换，支持键盘方向键和 Esc 关闭。瀑布流采用 CSS 多栏，按先从上到下、再从左到右的顺序排列，无需额外布局脚本。当前保留六张来自 `images/` 的本地图片作为测试内容，包含不同长宽比，便于检查瀑布流和灯箱切换；已移除不可用的图库外链。
-
-文章首页继续使用原生 `default` 列表，摘要长度保持 Quarto 默认设置。
-
-## marimo 交互文章
-
-文章《可视化损失地形：神经网络的训练轨迹》：`posts/marimo-reactive-article/index.qmd`，访问 <http://127.0.0.1:4200/posts/marimo-reactive-article/>，也会出现在首页列表和搜索中。
-
-已安装 `quarto-marimo` **0.5.0** 到 `_extensions/marimo-team/marimo/`。需要 Quarto ≥ 1.9.20 和 `uv`。文章使用 `engine: marimo`，仅该文章覆盖 `execute.enabled: true`；原有文章仍关闭代码执行。`pyproject` 固定 marimo **0.24.0** 并声明 NumPy，插件通过 uv 管理构建环境，HTML 通过 Pyodide 在浏览器计算。
-
-```bash
-# 构建单篇（也更新关联文章列表）
-quarto render posts/marimo-reactive-article/index.qmd
-# 或构建全站，再执行校验
-quarto render
-uv run scripts/verify.py
-```
-
-文章把 `.marimo` 单元穿插在普通 Markdown 正文中，包含 MLP 训练表单、独立地形表单和计算结果，并介绍 PCA 投影、局部平面融合与读图边界。图表单元沿用原项目的 iframe / Plotly / ffmpeg.wasm 组件，支持播放、2D/3D 切换及 GIF/MP4 导出。手机图表上下排列。数值代码和约 36 MB 的 `public/` 资源已复制到文章目录，构建不依赖 `~/Code/marimo`，原项目未修改。来源和改动记录见该目录的 `PROVENANCE.md`。
-
-**2026-09-11 初版验证记录（正式文章已移除平方滑块）：** 全站 24 个页面构建成功，校验脚本通过（22 篇文章，草稿未输出，本地链接无断链）。浏览器验证滑块 `3² = 9 → 4² = 16`；目标 `x → x²` 后最终 MSE `0.000061 → 0.000096`；网格 `24 → 16` 后训练 MSE 保持不变。播放/暂停停在第 112 步，复位回到 0，时间条到第 201 步时图中标记一致；3D 切换和拖动旋转正常。实际下载 GIF/MP4，ffprobe 确认均为 1100 × 560、4 帧，MP4 为 H.264。检查了 1280px 桌面和 390px 窄屏，窄屏表单可提交、图表上下排列。
-
-**已知限制：** 第一次联网加载 marimo/Pyodide/依赖曾触发 `RPC request timed out`；缓存完成后刷新恢复正常。首屏静态输出与运行时成功启动是两项独立检查，请提交训练参数并确认结果更新。此页面不是离线包。3D 需要 WebGL，较大计算和导出会占用浏览器 CPU / 内存。插件单元中的 `code-fold` 在本次测试未产生折叠，因此部分单元直接展示代码。
-
-## 内容约定
-
-- 日期使用 ISO 格式的 `date`，更新日期使用 `date-modified`，摘要使用 `description`。
-- 分类与标签统一填写在 `categories` 中，用于首页标签展示与分类筛选。
-- `draft` 分类标签不会隐藏文章；未发布内容放在 `drafts/` 中，并设置 `draft: true`。
-- `posts/_metadata.yml` 和 `drafts/_metadata.yml` 配置 Markdown 解析扩展，支持紧邻段落的标题、列表和硬换行。
-- 空正文文章仍生成页面，但 Quarto 不将其加入搜索索引。
-- MathJax 从 CDN 加载，部分文章使用外链图片；完整浏览需要联网。
+仓库中的 `gh-pages` 分支保存旧 Hexo 站点，与当前 Quarto 源码独立。新站采用自身的文章路径，不维护旧站 URL 跳转。`_site/`、`.quarto/` 和本地环境缓存不提交到源码分支。

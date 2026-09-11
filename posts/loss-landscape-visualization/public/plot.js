@@ -1,4 +1,4 @@
-// Plotly traces are shared by the interactive preview and isolated export plot.
+// Plotly traces for the interactive loss landscape.
 export async function loadPlotly() {
   if (window.Plotly) return window.Plotly;
   await new Promise((resolve, reject) => {
