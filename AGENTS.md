@@ -27,6 +27,7 @@ styles/                             # 全站配色、首页列表及图库样式
 includes/mathjax.html               # MathJax mathtools 扩展配置
 _extensions/marimo-team/marimo/      # 随仓库保存的 quarto-marimo 扩展
 scripts/verify.py                   # 构建产物、搜索索引及本地链接校验
+scripts/build-cloudflare.sh         # Pages 工具安装、构建、校验与文件大小检查
 README.md                           # 项目介绍、环境、写作与部署说明
 _site/                              # 生成的站点，不提交
 .quarto/                            # Quarto 本地缓存，不提交
@@ -56,10 +57,10 @@ quarto preview --host 127.0.0.1 --port 4200 --no-browser
 - 修改内容、配置或资源后，构建并运行校验脚本。该脚本覆盖文章输出、非空文章搜索收录、草稿隔离和 HTML 本地链接。
 - 修改交互逻辑时，额外在浏览器检查训练提交、地形独立更新、播放控制和 2D/3D 切换；涉及布局时检查桌面和窄屏。
 - 静态图表成功显示不能证明 Pyodide 已就绪；提交参数并确认结果更新才能验证 Python 交互。
-- 面向 Cloudflare Pages 的构建需检查 `_site/` 中的单文件大小不超过 25 MiB。现有校验脚本不包含这一检查。
+- `scripts/build-cloudflare.sh` 在 Linux x86_64 环境安装固定版本工具并构建，额外检查 `_site/` 中的单文件大小不超过 25 MiB。修改云端构建流程时运行该脚本。
 
 ## 仓库与发布边界
 
 源码仓库为 `https://github.com/recynie/blog`，使用 `main` 分支。`gh-pages` 保存独立的旧 Hexo 站点；当前项目不要求兼容旧 URL。
 
-部署目标为 Cloudflare Pages，输出目录为 `_site/`；云端构建和自动部署尚未配置。提交、推送、变更分支或切换线上部署按用户授权执行，不因本地构建成功而自动发布。
+部署目标为 Cloudflare Pages，输出目录为 `_site/`；仓库已提供云端构建脚本，控制台的 Git 集成和首次部署需单独完成。配置项见 `README.md`。提交、推送、变更分支或切换线上部署按用户授权执行，不因本地构建成功而自动发布。

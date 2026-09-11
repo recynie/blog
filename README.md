@@ -85,8 +85,20 @@ description: "文章摘要"
 
 ## 部署
 
-部署目标是 **Cloudflare Pages 从 GitHub 的 `main` 分支构建网站**，发布目录为 `_site/`。当前仓库尚未配置云端构建脚本和自动部署；接入时需要安装 Quarto、uv 及 Python 构建环境，并确定网站域名。
+使用 **Cloudflare Pages 的 Git 集成**，从 GitHub 的 `main` 分支构建并发布。创建 Pages 项目、授权访问 `recynie/blog` 后，填写以下配置：
 
-当前源码构建的站点已移除超过 Cloudflare Pages 单文件 25 MiB 限制的 ffmpeg 资源。后续新增大资源时仍需检查输出文件大小。
+| 配置项 | 值 |
+|---|---|
+| 生产分支 | `main`（手动选择，旧站分支为 `gh-pages`） |
+| 框架预设 | None |
+| 构建命令 | `bash scripts/build-cloudflare.sh` |
+| 构建输出目录 | `_site` |
+| 根目录 | 仓库根目录，留空 |
+| 构建系统 | v3 |
+| 环境变量 | `PYTHON_VERSION=3.12` |
+
+`scripts/build-cloudflare.sh` 面向 Linux x86_64 构建环境，在临时目录安装 Quarto **1.10.18** 和 uv **0.11.18**，通过 `UV_PYTHON=3.12` 选择 Python，随后构建全站、运行校验并检查输出文件不超过 Pages 的单文件 **25 MiB** 限制。脚本退出时清理临时工具，不需要 root 权限。
+
+Cloudflare 控制台的仓库连接与首次部署需要单独完成。接入后推送到 `main` 会自动触发部署，无需 GitHub Actions。先通过项目的 `*.pages.dev` 地址验证网站；确定正式域名后，在 `_quarto.yml` 的 `website.site-url` 中填写完整 HTTPS 地址。自定义域名通过 Pages 项目的 Custom domains 配置。
 
 仓库中的 `gh-pages` 分支保存旧 Hexo 站点，与当前 Quarto 源码独立。新站采用自身的文章路径，不维护旧站 URL 跳转。`_site/`、`.quarto/` 和本地环境缓存不提交到源码分支。
