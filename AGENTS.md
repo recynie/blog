@@ -13,7 +13,7 @@ posts/
   <文章名>.qmd                      # 简单文章，单文件形式
   <文章名>/index.qmd                # 复杂文章，可包含同目录资源
 drafts/                            # 本地草稿；支持单文件和独立目录，Git 忽略，排除全站渲染
-images/                             # 共享图片与摄影作品
+images/                             # 站点标识（SVG / PNG favicon）、共享图片与摄影作品
 styles/                             # 全站配色、首页列表及图库样式
 includes/mathjax.html               # MathJax mathtools 扩展配置
 _extensions/marimo-team/marimo/      # 随仓库保存的 quarto-marimo 扩展

@@ -9,9 +9,12 @@ lang: en
 
 website:
   title: "Yukiguni"
+  favicon: images/yukiguni-favicon.png
   site-url: "https://yukiguni-xennon.pages.dev/"
   description: "A personal blog on mathematics, machine learning, research tools, engineering, and photography."
   navbar:
+    logo: images/yukiguni-logo.svg
+    logo-alt: "Yukiguni — moon over snow"
     background: light
     foreground: "#172b3d"
     left:

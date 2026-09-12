@@ -72,6 +72,12 @@ description: "文章摘要"
 
 ### 图片与样式
 
+站点标识采用圆形雪夜、暖白月亮与双层雪坡，配色与导航栏一致。矢量源文件为 `images/yukiguni-logo.svg`，导航栏以 36 px 显示；`images/yukiguni-favicon.png` 为同图案的 48 × 48 px 透明背景图标。两者在 `_quarto.yml` 中配置。修改 SVG 后重新生成 favicon：
+
+```bash
+uv run --with cairosvg python -c 'import cairosvg; cairosvg.svg2png(url="images/yukiguni-logo.svg", write_to="images/yukiguni-favicon.png", output_width=48, output_height=48)'
+```
+
 共享图片位于 `images/`。向图库添加照片时，在 `gallery.qmd` 的 `.gallery-masonry` 容器内插入图片，各图片之间保留空行。
 
 全站配色、首页列表和图库样式分别位于 `styles/colors.css`、`styles/listing.css` 和 `styles/gallery.css`。交互文章的实现来源、改动说明和第三方许可证保存在文章目录中。

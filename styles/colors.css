@@ -8,6 +8,12 @@
   background-color: var(--site-header-background);
 }
 
+#quarto-header .navbar-logo {
+  width: 36px;
+  height: 36px;
+  max-height: 36px;
+}
+
 .quarto-title-banner {
   background-color: #eef3f7;
 }
