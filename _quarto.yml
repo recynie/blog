@@ -9,6 +9,8 @@ lang: en
 
 website:
   title: "Yukiguni"
+  site-url: "https://yukiguni-xennon.pages.dev/"
+  description: "A personal blog on mathematics, machine learning, research tools, engineering, and photography."
   navbar:
     background: light
     foreground: "#172b3d"
@@ -25,7 +27,10 @@ format:
     css: styles/colors.css
     toc: true
     html-math-method: mathjax
-    include-in-header: includes/mathjax.html
+    include-in-header:
+      - includes/mathjax.html
+      - text: |
+          <meta name="google-site-verification" content="rvMZCfPqbcwxZADRU9nTAdkZ33brto8-Do1EP99PxJM" />
 
 execute:
   enabled: false

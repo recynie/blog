@@ -94,6 +94,10 @@ description: "文章摘要"
 
 `scripts/build-cloudflare.sh` 面向 Linux x86_64 构建环境，在临时目录安装 Quarto **1.10.18** 和 uv **0.11.18**，通过 `UV_PYTHON=3.12` 选择 Python，随后构建全站、运行校验并检查输出文件不超过 Pages 的单文件 **25 MiB** 限制。脚本退出时清理临时工具，不需要 root 权限。
 
-Cloudflare 控制台的仓库连接与首次部署需要单独完成。接入后推送到 `main` 会自动触发部署，无需 GitHub Actions。先通过项目的 `*.pages.dev` 地址验证网站；确定正式域名后，在 `_quarto.yml` 的 `website.site-url` 中填写完整 HTTPS 地址。自定义域名通过 Pages 项目的 Custom domains 配置。
+站点地址为 <https://yukiguni-xennon.pages.dev/>，已在 `_quarto.yml` 的 `website.site-url` 中配置。Cloudflare 控制台的仓库连接与首次部署需要单独完成。接入后推送到 `main` 会自动触发部署，无需 GitHub Actions。后续更换域名时，同步更新 `website.site-url`；自定义域名通过 Pages 项目的 Custom domains 配置。
+
+### Google 搜索收录
+
+配置 `website.site-url` 后，Quarto 构建会生成 `_site/sitemap.xml`。部署后检查 <https://yukiguni-xennon.pages.dev/sitemap.xml> 可公开访问。在 [Google Search Console](https://search.google.com/search-console/) 中添加网址前缀 `https://yukiguni-xennon.pages.dev/`，按提示完成所有权验证，再提交 `sitemap.xml`。可通过「网址检查」为首页和重要文章请求编入索引；实际收录情况以 Search Console 报告为准。站内搜索 `website.search` 与 Google 收录独立。
 
 仓库中的 `gh-pages` 分支保存旧 Hexo 站点，与当前 Quarto 源码独立。新站采用自身的文章路径，不维护旧站 URL 跳转。`_site/`、`.quarto/` 和本地环境缓存不提交到源码分支。
