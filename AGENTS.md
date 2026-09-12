@@ -10,18 +10,9 @@ index.qmd                           # 首页文章列表、分类、排序与筛
 gallery.qmd                        # 摄影图库与灯箱入口
 posts/
   _metadata.yml                     # 文章共享元数据与 Markdown 解析设置
-  <文章名>/index.qmd                # 已发布文章，可包含同目录资源
-  loss-landscape-visualization/
-    index.qmd                       # 损失地形文章、marimo 单元与 NumPy 算法
-    article.css                     # 交互文章布局
-    public/
-      app.js                        # 图表控件、播放与视图状态
-      plot.js                       # Plotly 图形构造与帧更新
-      plotly/                       # 本地 Plotly 分发文件
-      THIRD_PARTY.md                # 浏览器资源版本与来源
-      licenses/                     # 第三方许可证
-    PROVENANCE.md                   # 算法与资源溯源、文章副本改动
-drafts/                            # 本地草稿；Git 忽略，排除全站渲染
+  <文章名>.qmd                      # 简单文章，单文件形式
+  <文章名>/index.qmd                # 复杂文章，可包含同目录资源
+drafts/                            # 本地草稿；支持单文件和独立目录，Git 忽略，排除全站渲染
 images/                             # 共享图片与摄影作品
 styles/                             # 全站配色、首页列表及图库样式
 includes/mathjax.html               # MathJax mathtools 扩展配置
@@ -37,10 +28,9 @@ _site/                              # 生成的站点，不提交
 
 ## 内容与实现约定
 
-- 文章使用 `posts/<文章名>/index.qmd`，共享设置位于 `posts/_metadata.yml`。修改 Markdown 解析选项时留意已有文章的换行、列表和标题行为。
-- 草稿保留在本地 `drafts/`，设置 `draft: true`；不要强制加入 Git。`draft` 分类标签不具备隐藏作用。
+- 文章支持 `posts/<文章名>.qmd`（简单文章）和 `posts/<文章名>/index.qmd`（含专属资源的复杂文章，一般是含有marimo等交互资源的文章），共享设置位于 `posts/_metadata.yml`；两种布局均参与渲染、首页列表、搜索和构建校验。迁移布局会改变 URL 和相对资源路径，需同步更新引用。修改 Markdown 解析选项时留意已有文章的换行、列表和标题行为。
+- 草稿保留在本地 `drafts/`，支持 `drafts/<文章名>.qmd` 和 `drafts/<文章名>/index.qmd`，设置 `draft: true`；不要强制加入 Git。`draft` 分类标签不具备隐藏作用。
 - `_quarto.yml` 默认关闭代码执行。需要计算的文章自行声明引擎、依赖和执行设置，避免全站开启执行。
-- 损失地形文章使用 quarto-marimo、NumPy 和浏览器 Pyodide。训练、地形计算与图表播放各自负责独立的交互阶段；当前无 GIF/MP4 导出和 ffmpeg 资源。
 - 优先使用 Quarto 原生网站功能，样式集中在 `styles/` 或文章专属 CSS 中。直接修改 `_site/` 不会保留到下一次构建。
 - `_extensions/` 和本地 Plotly 属于第三方分发内容。更新时核对版本、兼容性与许可证，维护对应来源记录。
 
@@ -61,6 +51,6 @@ quarto preview --host 127.0.0.1 --port 4200 --no-browser
 
 ## 仓库与发布边界
 
-源码仓库为 `https://github.com/recynie/blog`，使用 `main` 分支。`gh-pages` 保存独立的旧 Hexo 站点；当前项目不要求兼容旧 URL。
+源码仓库为 `https://github.com/recynie/blog`，使用 `main` 分支。
 
 部署目标为 Cloudflare Pages，输出目录为 `_site/`；仓库已提供云端构建脚本，控制台的 Git 集成和首次部署需单独完成。配置项见 `README.md`。提交、推送、变更分支或切换线上部署按用户授权执行，不因本地构建成功而自动发布。

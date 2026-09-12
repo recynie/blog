@@ -4,37 +4,54 @@ date: '2025-06-26'
 date-modified: '2025-07-08'
 description: 从RNN、ResNet以及ODE引入Neural ODE(神经微分方程)架构，推导其前向过程和后向过程计算方法。
 categories:
-- machine-learning
+- machine learning
 - math
-- neural-ode
+- neural ode
 ---
 # 引入
+
 ## 从ResNet模型来看
+
 ResNet, RNN, normalizing flows等模型都通过隐向量构建变换。在ResNet中，隐向量$h_{t}$与它经残差块$f(\cdot)$变换后的输出相加得到新的隐向量$h_{t+1}$，即$h_{t+1}=h_{t}+f_{t}(h_{t})$；在RNN中，共用类似表达，但对于所有输入$x_{t}$的变换都相同（所有输入共享参数），$h_{t+1}=f(h_{t},x_{t})$.
+
 我们可以从中（主要是ResNet）概括出前向传播中隐藏状态的更新模式，为 $$ h_{t+1}=h_{t}+f(h_{t};\theta_{t})\tag{1.1:1} $$ 其中，$h_{t}$表示$t$时刻（时间序列中的第$t$个值）的隐向量，$t\in \{ 0,1,\dots,T \}\ ,\ h_{t}\in \mathbb{R}^D$
+
 上式可以变形为差分方程的形式：
 $$ h_{t+1}-h_{t}=f(h_{t};\theta_{t})\tag{1.1:2} $$
 
 ## 从ODE来看
+
 给定一个常微分方程 $$\frac{d}{dt}y(t)=f(y(t),t)\tag{1.2:1}$$及初值条件$y_{0}$ ( $y_{0}$ 满足 $y_{0}=y(t_{0})$ )，我们能否解出任意时刻的函数值，即解出全部的$(y(t),t)$？
-理论上是可以的，对方程两边积分，可得 $$ y(t)=y_{0}+\int_{t_{0}}^{t}f(y(\tau),\tau)d\tau\tag{1.2:2} $$ 
+
+理论上是可以的，对方程两边积分，可得 $$ y(t)=y_{0}+\int_{t_{0}}^{t}f(y(\tau),\tau)d\tau\tag{1.2:2} $$
+
 其中难以计算解析解的只有定积分项，可以用数值积分方法（也可以叫做ODE Solver）给出近似解。
+
 Euler method就是一种朴素的数值积分方法，可以用它引入NODEs，因此我们简单介绍这种近似方法。Euler method从初始点$(y(t_{0}),t_{0})$开始，使用微分的思想，沿着梯度$f(y,t)$的方向近似解出短时间后的函数值，不断循环前进，即：
+
 每次循环中已知当前点$(y(t_{i}),t_{i})，$求$y(t_{i}+\Delta t)$的值。
+
 数学表示Euler method的递推公式为 $$ y(t_{i+1})=y(t_{i})+\Delta t\cdot f(y(t_{i}),t_{i})\tag{1.2:3} $$ 其中$t_{i+1}=t_{i}+\Delta t$.
+
 理论上，根据此递推关系可以逐步求出所有$(y(t),t)$的近似值。
 
 > 当然，近似的误差会被逐步放大，因此Euler method不够精确，实际更常用Runge-Kutta method等求数值积分。
 
 ## 引入Neural ODE
+
 ResNet中隐藏状态的更新公式 $$ h_{t+1}-h_{t}=f(h_{t};\theta_{t}) \tag{1.3:1} $$
+
 Euler method的递推公式 $$ y(t_{i+1})-y(t_{i})=\Delta t \cdot f(y(t_{i}),t_{i}) \tag{1.3:2} $$
+
 对应的微分方程 $$ \frac{d}{dt} y(t)=f(y(t),t)\tag{1.3:3} $$
+
 可以发现，(1)和(2)这两个公式十分相似。 式(1)的隐藏状态$h$依赖于离散的时间$t=0,1,\dots,T$；式(2)中待求解的未知变量$y$依赖于连续时间$t$的离散采样$t_{i}=t_{0}+k\cdot \Delta t,\ k \in \mathbb{Z}$，二者都是关于离散时间的差分方程。考虑到(2)是对(3)的近似求解方法，(1)与(2)的相似性实际上暗示(1)与(3)之间存在关联，也就是神经网络模型和常微分方程之间存在关联。
  这种关联说明：“ResNet, RNN等模型的前向传播”类似于“使用Euler method近似求解ODE”。
  进一步地，我们会想到，（前向传播中的）模型是否可以视为待求解的微分方程？求解微分方程的过程是否可以视为模型的前向传播？这种想法很有吸引力，因为求解ODE的方法很多，我们可以换用其他ODE Solver，或许可以增加前向传播的效率。进一步地，如果前向传播可视为求微分方程数值解，能否设计一种基于ODE数值方法的反向传播方法？
 Nerual ODE就是在这种思想下被设计出来的，它使用ODE Solver的方法进行前向和反向传播。更有用的特点是，它可以更好表征连续（时间/空间）观测值，正如微分方程(3)中的$f$，它可以表征$y(t)$，而$y(t)$是连续时间$t$的函数。
-Neural ODE形式上为 $$ \frac{d}{dt} h(t)=NN(h(t),t,\theta)\tag{1.3:4} $$ 
+
+Neural ODE形式上为 $$ \frac{d}{dt} h(t)=NN(h(t),t,\theta)\tag{1.3:4} $$
+
 其中，$NN$表示神经网络本体，$(h(t),t)$为数据（$t$时刻$h$的值，多个构成一组序列，作为数据集），$\theta$是神经网络的参数。
 
 - 从ODE的角度看，Neural ODE将微分方程(3)中的$f$替换为神经网络，以$(y(t_{i}),t_{i})$构成的集合为数据集进行训练。
@@ -47,51 +64,72 @@ Neural ODE形式上为 $$ \frac{d}{dt} h(t)=NN(h(t),t,\theta)\tag{1.3:4} $$
     “连续化”是针对输入数据所在空间的，这使得不同时间间隔的数据可作为训练数据。RNN能处理离散的时间序列，例如把一句话作为时间序列数据，“时间”就意味着单词（token）是句子的第几个单词，而RNN难以处理连续时间序列，例如“通过小球的时空坐标求解加速度场”这个问题，我们只能**等间隔**地采样$(\text{time}, \text{position})$数据对来训练模型。Neural ODE就可以处理这个问题（求加速度场），并且不需要等间隔采样，无论如何采样$(\text{time},\text{position})$作为数据集，模型都可以表征。
 
 # Neural ODE
+
 Neural ODE对输入值的梯度进行建模 $$ \frac{d}{dt} h(t)=NN(h(t),t,\theta)\tag{2.0:1} $$
+
 其中，$NN$表示神经网络本体，$(h(t),t)$作为为数据（$t$时刻$h$的值，多个构成一组序列，作为数据集），$\theta$是神经网络的参数。
+
 接下来最重要的问题是，如何训练和测试Neural ODE，也就是在问，Neural ODE的forward process和backward process是怎样的？
+
 ## forward process
+
 forward process的输入输出：(2.0:1)中$NN$（的参数$\theta$）已知，神经网络本身不变化，$t$作为输入，需要计算$h(t)$的值。
+
 既然$NN$已知，这其实就是一个ODE（可以与(1.2:1)式比照着看），利用数值积分方法就可以算出来。
+
 实用场景下，会选择能够利用GPU进行加速的ODE Solver进行前向计算。
 
 这里是更具体一点的推导（其实和前面的推导几乎一样）：
+
 假设我们已知$t_{N}$，想知道$h(t_{N})$的值。对(2.0:1)两侧积分，得到 $$ h(t_{N})=h(t_{0})+\int_{t_{0}}^{t_{N}}NN(h(t),t,\theta)dt \tag{2.1:1}$$
+
 训练数据集中任意选数据对都可以作为$(h(t_{0}),t_{0})$，然后选用合适的数值积分方法求积分项，就可以得到结果。
 
 ## backward process
+
 首先列出Neural ODE中隐藏状态更新公式（将(5)中的$NN$符号替换为$f$，仍表示神经网络）： $$ h(t_{1})=h(t_{0})+\int_{t_{0}}^{t_{1}}f(h(t),t,\theta)dt\tag{2.2:1} $$
+
 backward process的输入输出：给定损失函数$\mathcal{L}(\cdot)$，已知神经网络$f$（的参数$\theta$）和数据集，需要计算损失关于神经网络参数的梯度$\frac{\mathrm{d}\mathcal{L}}{\mathrm{d}\theta}$，根据这个梯度更新$\theta$的值。
+
 ### Back Propagation Through Time
+
 第一种方法，也是最容易想到的，按照一般神经网络损失的反向传播(Back Propagation, BP)算法推导：
 将损失函数套到(2.2:1)上得到 $$\begin{align}
 \mathcal{L}(h(t_{1})) & =\mathcal{L}(h(t_{0})+\int_{t_{0}}^{t_{1}}f(h(t),t,\theta)dt)  \\
 & =\mathcal{L}(\text{ODESolver}(h(t_{0}),f,t_{0},t_{1},\theta))\tag{2.2.1:1}
 \end{align}  $$
 使用ODE Solver能够求出$h(t_{0})+\int_{t_{0}}^{t_{1}}f(h(t),t,\theta)dt$的值，于是将这一项替代为$\text{ODESolver}(h(t_{0}),f,t_{0},t_{1},\theta)$，体现ODE Solver接收$h(t_{0}),f,t_{0},t_{1},\theta$作为输入，将$h(t_{0})+\int_{t_{0}}^{t_{1}}f(h(t),t,\theta)dt$的值（也即ODE $\frac{d}{dt} h(t)=f(h(t),t,\theta)$ 的解）输出。
+
 既然损失函数可以求出，那么按照ODE Solver内部的autodiff(自动微分)就可以计算梯度$\frac{\mathrm{d}\mathcal{L}}{\mathrm{d}\theta}$，自然可以反向传播更新网络$f$的参数$\theta$。这类似于RNN中使用的BPTT算法。
+
 同样类似于RNN，BPTT算法的问题在于：如果输入的时间序列数据很长，就会有很多个$h(t_{i})$，再加上ODE Solver可能很复杂，那么forward process得到的计算图(computation graph)很复杂。由于BP要保存forward process中的部分计算结果（也就是activation）用于backward process，复杂的计算图就要求保存更多的activation，也就带来了更大的显存消耗。
+
 另外，这种方法显然没有利用ODE本身的性质，只是把它视为普通的神经网络，根据forward process去推backward process而已。
+
 ### Adjoint Method
+
 而第二种方法，称作伴随方法，利用了ODE本身的性质，通过求解另一个辅助ODE（称为伴随方程）来计算梯度。
+
 将时间序列数据记作$( t_{0},\dots,t_{N} )\,(t_{0}<\cdots<t_{N})$，用$t$表示任意时间，损失函数$\mathcal{L}$关于参数$\theta$的总梯度为$\frac{\mathrm{d}\mathcal{L}}{\mathrm{d}\theta}$，需要用它进行backward process。
 
 >文献中提到的$\mathcal{L}$似乎有多种含义，它有时表示在$t$时刻的损失$\mathcal{L}(t)$，或记作$G(t)$，表示从初始时刻$t_{N}$到$t$时刻（累积）的损失（一般人为规定$G(t_{N})=0$，因为$t_{N}$时没有发生反向传播，不认为产生损失），与$t$有关；有时表示关于参数的总损失$\mathcal{L}(\theta)$，与$t$无关，可以表示为$\mathcal{L}(t_{0})$，即从$t_{N}$反向传播到最初时刻$t_{0}$的总损失。根据误差梯度更新参数时，使用的$\mathcal{L}$是与$t$无关的总损失$\mathcal{L}(\theta)$。
 
 为forward process的ODE $\frac{\mathrm{d}h(t)}{\mathrm{d}t}=f(h(t),t,\theta)$ 创建一个伴随状态(adjoint state) $$a(t)\coloneqq \frac{\mathrm{d}\mathcal{L}}{\mathrm{d}h(t)} \tag{2.2.2:1}$$
+
 能证明$\frac{\mathrm{d}a(t)}{\mathrm{d}t}$可以用一个新的ODE来表示，称作伴随方程(adjoint equation)：（证明过程见[此处](#Adjoint%20Method的证明)）
 $$ \frac{\mathrm{d}a(t)}{\mathrm{d}t}=-a(t)\frac{ \partial f(h(t),t,\theta) }{ \partial h(t) }  \tag{2.2.2:2} $$
 接下来我们将扩展(2)式中的变量，以构造一个包含更多信息的伴随方程(后文的(6)式)，将关心的项组合到一个变量$h_{aug}=[h,\theta,t]$中。相应地，将$f$扩展为$f_{aug}$，原来的$f=\frac{\mathrm{d}h}{\mathrm{d}t}$是$h$对$t$的梯度，现在我们希望$f_{aug}$表示$h_{aug}=\left[ h,\theta,t \right]$对$t$的梯度，即定义（并化简） $$ f_{aug}(h_{aug})\coloneqq \frac{\mathrm{d}h_{aug}}{\mathrm{d}t}(t)=\left[ \frac{ \partial h(t) }{ \partial t },\frac{ \partial \theta(t) }{ \partial t } ,\frac{\mathrm{d}t(t)}{\mathrm{d}t}  \right]=\left[ f(h,\theta,t),0,1 \right] \tag{2.2.2:3} $$
+
 计算Jacobian matrix（自变量$t$省略）
 $$ \frac{ \partial f_{aug} }{ \partial \mathbf{h}_{aug}}=\frac{ \partial f_{aug} }{ \partial [\mathbf{h},\theta,t] } =\begin{bmatrix}
 \frac{ \partial f }{ \partial \mathbf{h} }  & \frac{ \partial f }{ \partial \theta }  & \frac{ \partial f }{ \partial t }  \\
 \mathbf{0} & \mathbf{0} & \mathbf{0} \\
 \mathbf{0} & \mathbf{0} & \mathbf{0}
-\end{bmatrix} 
+\end{bmatrix}
 \tag{2.2.2:4}
 $$
 
-定义$a_{\theta},a_{t},a_{aug}$三个变量 
+定义$a_{\theta},a_{t},a_{aug}$三个变量
 $$ a_{aug}(t)\coloneqq \begin{bmatrix}
 a(t) \\
 a_{\theta}(t) \\
@@ -106,6 +144,7 @@ $$
 > 第二分量中，$\theta$与$t$无关，$a_{\theta}(t)$实际上就是前文提到的与时间相关损失$\mathcal{L}(t)$在$t$上的梯度$\frac{ \partial \mathcal{L}(t) }{ \partial \theta }$，可用于更新参数。
 
 参照伴随状态定义(1)和伴随方程(2)，不难发现：由于$a_{aug}=\frac{\mathrm{d}\mathcal{L}}{\mathrm{d}h_{aug}}$成立，$a_{aug}$是$h_{aug}$的伴随状态，伴随方程(6)也因此成立。
+
 对应于扩展后变量($a_{aug},f_{aug},h_{aug}$)的伴随方程为
 $$ \frac{\mathrm{d}a_{aug}}{\mathrm{d}t}=-a_{aug}\frac{ \partial f_{aug} }{ \partial h_{aug} } \tag{2.2.2:6} $$
 上式等号右侧带入(5)式（i.e., $a_{aug}=[a, a_{\theta},a_{t}]$）和(4)式化简，等号左侧将微分作用于三个分量，于是(6)式可化简为
@@ -115,6 +154,7 @@ $$ \frac{\mathrm{d}a}{\mathrm{d}t} =-a\frac{ \partial f }{ \partial h } $$
 $$\frac{\mathrm{d}a_{\theta}}{\mathrm{d}t} =-a\frac{ \partial f }{ \partial \theta } \tag{2.2.2:8} $$
 $$\frac{\mathrm{d}a_{t}}{\mathrm{d}t} =-a\frac{ \partial f }{ \partial t } \tag{2.2.2:9}$$
 其中，第一个等式就是扩展前的伴随方程，即(2)式；第二个等式(8)可用于求$\frac{\mathrm{d}\mathcal{L}}{\mathrm{d}\theta}$。
+
 将(8)两侧对整个区间$[t_{0},t_{N}]$积分，并令$a_{\theta}(t_{N})=0$，得到损失的总梯度
 $$\frac{\mathrm{d}\mathcal{L}}{\mathrm{d}\theta}=a_{\theta}(t_{0})=-\int _{t_{N}}^{t_{0}}a(t)\frac{ \partial f(h(t),t,\theta) }{ \partial \theta }  \, dt \tag{2.2.2:10} $$
 (10)式表示损失对参数的梯度，用于更新神经网络参数$\theta$。
@@ -122,21 +162,29 @@ $$\frac{\mathrm{d}\mathcal{L}}{\mathrm{d}\theta}=a_{\theta}(t_{0})=-\int _{t_{N}
 > (10)中$a(t)\frac{ \partial f(h(t),t,\theta) }{ \partial \theta }$是vector-Jacobian product(VJP)，计算时不需要显式求出Jacobian matrix，实际计算框架中对此计算有优化。
 
 论文中给出的adjoint method流程（由伪代码改写）如下：
+
 （输入：网络参数$\theta$，初始时间$t_{0}$，停止时间$t_{N}$，最终状态$h(t_{N})$，损失对最终状态的梯度$\frac{ \partial \mathcal{L} }{ \partial h(t_{N}) }$
+
 1. 计算损失对时间梯度$\frac{ \partial \mathcal{L} }{ \partial t_{N} }=\frac{ \partial \mathcal{L} }{ \partial h(t_{N}) }^Tf(h(t_{N}),t_{N},\theta)$
 2. 定义初始扩展状态$s_{0}=\left[ z_{t_{N}},\frac{ \partial \mathcal{L} }{ \partial h(t_{N}) },\mathbf{0}_{|\theta|},-\frac{ \partial \mathcal{L} }{ \partial t_{N} } \right]$
 3. 根据$h(t),a(t),t,\theta$计算$\text{aug\_dynamics}=f(h(t),t,\theta),-a(t)^T \frac{ \partial f }{ \partial h },-a(t)^T\frac{ \partial f }{ \partial \theta },-a(t)^T\frac{ \partial f }{ \partial t }$（计算vector-Jacobian乘积）
 4. 反向时间求解ODE: $\left[ h(t_{0}),\frac{ \partial \mathcal{L} }{ \partial h(t_{0}) },\frac{ \partial \mathcal{L} }{ \partial \theta },\frac{ \partial \mathcal{L} }{ \partial t_{0} } \right]=\text{ODESolve}(s_{0},\text{aug\_dynamics},t_{N},t_{0},\theta)$
 5. 输出：$\frac{ \partial L }{ \partial h(t_{0}) },\frac{ \partial \mathcal{L} }{ \partial \theta },\frac{ \partial \mathcal{L} }{ \partial t_{0} },\frac{ \partial \mathcal{L} }{ \partial t_{N} }$
 接下来根据这些值更新参数即可，其中$\frac{ \partial \mathcal{L} }{ \partial \theta }$是最重要的，用于更新神经网络参数$\theta$，其他梯度提供了损失对输入、初始时间、终止时间的敏感度。
+
 ## Adjoint Method的证明
+
 **待证明命题**
+
 已知 $\frac{\mathrm{d}h(t)}{\mathrm{d}t}=f(h(t),t,\theta)$ ，定义伴随状态 $$a(t)\coloneqq \frac{\mathrm{d}\mathcal{L}}{\mathrm{d}h(t)} \tag{2.3:1}$$
+
 则下面的等式成立
 $$ \frac{\mathrm{d}a(t)}{\mathrm{d}t}=-a(t)\frac{ \partial f(h(t),t,\theta) }{ \partial h(t) }  \tag{2.3:2} $$
 
 **证明**
+
 （证明中的向量表示为行向量）
+
 由于隐状态连续，可以写出时间上相差$\varepsilon$的隐状态的关系：
 $$ h(t+\varepsilon)=h(t)+\int _{t}^{t+\varepsilon}f(h(t),t,\theta) \, dt \tag{2.3:3} $$
 由标准神经网络链式法则
@@ -146,7 +194,7 @@ $$ \frac{\mathrm{d}\mathcal{L}}{\mathrm{d}h(t)}=\frac{\mathrm{d}\mathcal{L}}{\ma
 借助$a(t)$定义(1)，将链式法则用伴随状态表示为
 $$ a(t)=a(t+\varepsilon)\frac{ \partial h(t+\varepsilon) }{ \partial h(t) }\tag{2.3:6} $$
 接下来从(2)的左侧开始推导
-$$ 
+$$
 \begin{align}
 \frac{\mathrm{d}a(t)}{\mathrm{d}t}
 &=\lim_{ \varepsilon \to 0^+ }\frac{a(t+\varepsilon)-a(t)}{\varepsilon} \\
@@ -162,7 +210,7 @@ h(t+\varepsilon) & =h(t)+ \int _{t}^{t+\varepsilon}f(h(t),t,\theta) \, dt  & \ti
 \end{align}
 $$
 将(8)带入(7)中得到
-$$ 
+$$
 \begin{align}
 \frac{\mathrm{d}a(t)}{\mathrm{d}t} & =\lim_{ \varepsilon \to 0^+}\frac{a(t+\varepsilon)-a(t+\varepsilon)\cdot \frac{ \partial }{ \partial h(t) } (h(t)+\varepsilon f(h(t),t,\theta)+\mathcal{O}(\varepsilon^{2}))}{\varepsilon}  \\
  & =\lim_{ \varepsilon \to 0^+}\frac{a(t+\varepsilon)-a(t+\varepsilon)\left( I+\varepsilon \frac{ \partial f(h(t),t,\theta) }{ \partial h(t) } +\mathcal{O}(\varepsilon^{2}) \right)}{\varepsilon} \\
@@ -172,15 +220,23 @@ $$
 \end{align}
 $$
 最后一步利用$a(t)$的连续性，这需要假设“$\mathcal{L}$对$h(t)$一阶连续可导”（通过定义(1)可知$a(t)$连续）。
+
 (9)即待证明的(2)式，证毕。
+
 ## Neural ODE的特点
+
 由于对所有时间序列数据都使用同一网络（类似于RNN），Neural ODE的参数量非常少。
+
 在forward过程中不需要保存中间结果（只需保存最终时间的结果），故显存占用少，但backward需要重新计算（与forward计算量接近），因此时间开销更大。
+
 所有隐藏状态$h(t_{i})$的shape相同，可能限制使用场景。
 
 # 后记
+
 论文：
+
 R. T. Q. Chen, Y. Rubanova, J. Bettencourt, and D. Duvenaud, “Neural ordinary differential equations,” Dec. 14, 2019, _arXiv_: arXiv:1806.07366. doi: [10.48550/arXiv.1806.07366](https://doi.org/10.48550/arXiv.1806.07366).
+
 参考：
 
 - Neural ODE的引入方式参考youtube上[Steve Brunton的视频](https://www.youtube.com/watch?v=nJphsM4obOk)

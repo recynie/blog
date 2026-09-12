@@ -9,6 +9,7 @@ categories:
 - websites
 ---
 论文追新：
+
 - [HF daily papers](https://huggingface.co/papers/date/2025-10-14)：推荐热门论文，可以按每日/周/月查看。
     - 可查看huggingface上的相关spaces、模型和数据集。
     - 有社区评论功能，通常有投稿人对文章的简要介绍和资源链接（huggingface, github, arxiv等）。
@@ -24,6 +25,7 @@ categories:
     - 个性化程度可能更高
 
 文献检索：
+
 - [Semantic Scholar](https://www.semanticscholar.org/)：更智能的关键字搜索（？）
 - [Google Scholar](https://scholar.google.com)：关键字搜索
     - 文献较全面
@@ -36,17 +38,20 @@ categories:
     - 文献传统检索的佼佼者
 
 引用关系：
+
 - [connected papers](https://www.connectedpapers.com):部分付费，每月免费查找引文5次
 - [litmaps](https://app.litmaps.com)：免费次数更多（？
 - [web of science](https://webofscience.clarivate.cn/wos/alldb/basic-search)：不能以图的形式查看引文关系，但可查找引用和被引论文
     - 数据库更大（应该
 
 文献阅读：
+
 - [Scholaread](https://www.scholaread.cn/library)：外文文献重排、翻译效果最好
     - 支持pdf重排、AI翻译、AI问答、文字高亮、笔记，兼具一定的文献管理能力
     - 我主要用来阅读、翻译文献，这方面目前体验较好
 
 文献管理：
+
 - [Zotero](https://www.zotero.org/)：综合文献管理工具
     - 免费。
     - 插件丰富。但翻译插件较弱。

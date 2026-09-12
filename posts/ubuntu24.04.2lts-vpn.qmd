@@ -9,8 +9,11 @@ categories:
 - vpn
 ---
 在Ubuntu24.04.2LTS上安装vpn软件（代理软件）的记录。
+
 目标：支持订阅连接（clash/v2ray/sing-box）、能使用TUN模式代理全部流量、自动更新订阅、有GUI或WebUI。
+
 尝试的软件列表
+
 - Clash-verge-rev/Clash-verge
     - TUN模式无效，原因未知
     - 有时会自动打开轻量模式，疑似由“静默启动”导致
@@ -30,6 +33,7 @@ categories:
 - V2rayA
 
 最终选择V2rayA，相比我使用过的clash-for-windows, clash-nyapatsu, clash-verge-rev，v2raya的优缺点：
+
 - 优点
     - 使用服务(systemd)自启动，启动后无托盘图标
     - 安装指南较详细

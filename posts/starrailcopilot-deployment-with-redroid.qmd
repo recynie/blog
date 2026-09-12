@@ -2,13 +2,13 @@
 title: 以redroid为基础部署Star Rail Copilot
 date: '2026-08-07'
 date-modified: '2026-08-07'
-description: 在Linux上用Docker运行R、edroid，通过ADB将Android版《崩坏：星穹铁道》接入StarRailCopilot，并记录SELinux、GPU、ARM转译、设备配置和systemd调度中的关键问题。
+description: 在Linux上用Docker运行Redroid，通过ADB将Android版《崩坏：星穹铁道》接入StarRailCopilot，并记录SELinux、GPU、ARM转译、设备配置和systemd调度中的关键问题。
 categories:
 - softwares
 - redroid
-- starrailcopilot
-- android
+- container
 - linux
+- auto gaming
 - aigc
 ---
 

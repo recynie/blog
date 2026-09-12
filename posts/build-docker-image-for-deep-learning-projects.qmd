@@ -6,13 +6,16 @@ description: 深度学习项目的镜像构建方法。包括PyTorch基础镜像
 categories:
 - softwares
 - container
-- deep-learning
-- draft
-- short-article
+- deep learning
+- short article
 ---
 
 PyTorch基础镜像NGC[PyTorch | NVIDIA NGC](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/pytorch)（镜像版本并非pytorch版本），CUDA基础镜像[cuda | NVIDIA NGC](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/cuda)（镜像名称即cuda版本）。
+
 镜像源和使用方法[目前国内可用Docker镜像源汇总（截至2025年8月） - CoderJia](https://www.coderjia.cn/archives/dba3f94c-a021-468a-8ac6-e840f85867ea)。建议使用替换前缀的方法使用镜像源（更灵活、易于切换）。
+
 镜像可用性见[测试国内 docker registry 镜像](https://github.com/docker-practice/docker-registry-cn-mirror-test)。
+
 NGC镜像可以使用南京大学镜像源：[NGC | e-Science Document](https://doc.nju.edu.cn/books/e1654/page/ngc)
+
 生产环境建议使用dockerfile构建，便于复现。

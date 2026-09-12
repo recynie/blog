@@ -80,8 +80,11 @@ categories:
 
 > ```latex
 > \begin{cases}
+>
 > ...something...
+>
 > \end{cases}
+>
 > ```
 
 $$

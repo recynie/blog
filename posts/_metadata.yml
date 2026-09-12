@@ -1,4 +1,2 @@
-author: Aroma
-# Preserve the Markdown syntax used by the imported Hexo articles.
-from: markdown+hard_line_breaks-blank_before_header+lists_without_preceding_blankline
+from: markdown
 title-block-banner: true

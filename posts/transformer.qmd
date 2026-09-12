@@ -4,21 +4,27 @@ date: '2025-04-05'
 date-modified: '2025-04-05'
 description: 从(RNN-based) seq2seq模型开始，经过attention和self-attention，达到transformer的基础架构
 categories:
-- machine-learning
+- machine learning
 - transformer
 ---
 ## 概述
+
 seq2seq模型常用于序列处理，尤其是构建两类序列的对应关系的任务，例如机器翻译（构建两种语言文本序列的单向映射）、文本生成（构建问题向答案的映射）。
 > 下文均以机器翻译为例。
 
 发展关系上，对seq2seq模型架构的不断改进衍生出了Transformer架构。传统的seq2seq模型基于RNN；后续为将模型中的（固定长度的）上下文向量替换为动态性更强的attention机制，使得模型输出时能充分获得输入中相关性强的信息，用于解决它难以处理长序列文本的短板，此时的encoder和decoder模块仍保持为RNN模型；接着，attention机制被改进为self-attention，不再依赖encoder-decoder结构，可以直接对输入序列进行self-attention运算，并加入positional encoding注入位置信息，替换掉了RNN结构；transformer则基于self-attention，encoder和decoder都不再使用RNN，而选用multi-head attention和FFN作为encoder，masked self-attention作为decoder。
+
 本文依序介绍如下内容：
+
 1. (RNN-based) seq2seq
 2. attention机制
 3. self-attention
 4. transformer架构
+
 ## seq2seq架构
+
 包含encoder和decoder两个模块：
+
 - encoder
 	- 输入：模型整体的输入序列（源语言句子）
 	- 输出：context vector，定长向量
@@ -26,45 +32,74 @@ seq2seq模型常用于序列处理，尤其是构建两类序列的对应关系�
 	- 输入：context vector
 	- 输出：模型整体的输出序列（目标语言句子）
 这两个模块均使用RNN架构的模型，不共享参数。
+
 ### 基于context vector的seq2seq
+
 encoder-decoder完全依赖于context vector来传递信息，这说明context vector中需要保留输入文本中全部的语义信息才能完成机器翻译的任务。因此，当输入序列很长时，context vector不能很好地保留其中的信息，从而使得“处理长序列”称为这类seq2seq模型的难点。
+
 ### RNN-based seq2seq模型
+
 encoder和decoder均使用RNN网络。
+
 #### 隐状态的更新
+
 RNN在预测token时，需要考虑输入序列中的token和隐状态。形式上表示隐状态的更新方式： $$ H_{t}=f(H_{t-1},X_{t}) $$ 其中，$H_{t}$代表时间步$t$的隐状态(hidden state,hidden vector,hidden variable)，$X_{t}$表示时间步$t$的输入。
+
 #### 特点
+
 相比于attention，此模型：
+
 - 序列的位置信息（时序信息）直接体现在架构中。这也是attention添加positional encoding的原因。
 这会带来几个问题：
 - 计算效率低：计算过程是高串行的，每一个时间步必须等待上一个时间步计算结束。
 - 弱长相关：在逐步向下（一个时间步）传递的过程中，文本序列中间隔很远的token的信息会逐渐消失。
+
 ## transformer架构
+
 ![](https://upload.wikimedia.org/wikipedia/commons/3/34/Transformer%2C_full_architecture.png)
 transformer架构属于encoder-decoder架构，encoder和decoder大量应用attention层。
+
 本节从self-attention讲起，这是transformer最重要的创新之处。后续的内容也依赖于self-attention，例如multi-headed attention、cross attention，二者分别是self-attention在通道上的扩展（或说堆叠）、在输入上的变化（更改$Q$,$K$,$V$的来源）。
+
 attention层的输入有3个矩阵$Q,K,V$，不同来源的$Q,K,V$有不同的名字。
+
 ### self-attention层
+
 attention的种类有很多，transformer中使用的attention是self-attention。
+
 attention的作用：将序列中其他token（严格来说也包括自身token）的相关信息加入到当前token的表示中，即用序列的全部token更新当前token的embedding。
+
 目的：使得token的embedding包含上下文信息。
 
 #### 引入动机
+
 首先将输入句子tokenize，即：按照实现给定的词表分割输入句子。这些token进行需首先通过embedding层（trainable），将其映射到高维空间的一个embedding向量。这是token的基础表征，它表示的是token的基础语义，其中不含有任何上下文信息。
+
 从引入上下文信息的角度看，attention用于替代RNN，可以使全部token的信息都汇聚到当前的token（而RNN只接收上一个时间步的隐状态和输入，当前token不能“看”到全部的token）。
+
 这直接解决了RNN的缺点。attention将整个输入序列的信息汇聚到当前token，规避了长相关的弱势；同时汇聚所有信息，使得并行性提高，不再像RNN那样存在时间步的依赖关系。
+
 #### 设计思路
+
 本节要回答的问题：“如何将所有token的信息汇聚到当前token中”。这种“汇聚”依赖于token之间的相关性，形象地说，是当前token对整个序列所有token的“注意力”，或者说，当前token应该把哪些token的信息融合到自身的表示中，以及“融合”的权重具体是多少。
+
 具体来说，它为每个token引入了3个向量$q,k,v$，分别代表query,key,value。到序列尺度，$q,k,v$各自的concat就记作矩阵$Q,K,V$，每列表示一个token。
+
 首先关注引入的目的（当然深度学习中“引入目的”和“实际作用”可能完全不同，请视为一种便于理解和记忆的方式）。
+
 形象地看，三者的预期作用如下（针对某一个token而言）：
+
 - Query
     当前token询问所有token：“是否有和我相关的token？相关权重是多少？”与当前token有关。
 - Key
     所有token共有的一个查询表，用Q与K点积即可得到相关性分数（实践中还需要softmax）：结果包含当前token对每个token的相关性。
 - Value:
     保存每个token的实际信息，即：要加入到原始embedding中的信息。处于和embedding相同的空间，具有相同的维度，但V可能会进行线性变换再与之相加。
+
 #### 数学表示
+
 $Q,K,V$的计算，实际上就是对输入embedding进行线性变换。$X$表示输入的embedding，$W_{Q},W_{K},W_{V}$分别是相应的变换矩阵（它们分别训练）。
+
 相关矩阵的shape为：
 
 | 矩阵      | shape                                    |
@@ -76,7 +111,7 @@ $Q,K,V$的计算，实际上就是对输入embedding进行线性变换。$X$表�
 | $K$     | $(\text{BatchSize},\text{SeqLen},d_{k})$ |
 | $V$     | $(\text{BatchSize},\text{SeqLen},d_{v})$ |
 
-self-attention的encoder中，它们计算方法如下： 
+self-attention的encoder中，它们计算方法如下：
 $$ \begin{align}
 Q & =XW_{Q} \\
 K & =XW_{K} \\
@@ -89,21 +124,28 @@ multi-head attention中，通常令$d_{k}=d_{v}=\frac{d_{\text{model}}}{\text{Nu
 > attention有很多种，这里介绍 *Attention is all you need*论文中提出的原始attention形式，即scaled dot-product attention.
 
 由上面的思路，我们可以写出一种简单的attention表示： $$ SimpleAttention(Q,K,V)=QK^{T}V $$
+
 $QK^{T}$表示查询得到的权重，再右乘 $V$ 得到$QK^{T}V$表示加权后的信息，将之作为注意力。
+
 这有两个问题：
 - 作为权重，我们希望$QK^{T}$是归一化的。使用softmax解决。
 - 不可以让$QK^T$的方差过大，这样softmax的结果会集中在$\pm1$，效果不好。 可以除以$\sqrt{ d_{k} }$解决。
 解决这些问题，就得到scaled dot-product attention的数学表示： $$ Attention(Q,K,V)=softmax\left( \frac{QK^T}{\sqrt{ d_{k} }} \right)V $$
-> attention的shape: $(\text{batchSize},\text{maxTokenNum},\text{embeddingDim})$,其中，batch的长度batchSize，单序列最大token长度maxTokenNum（若不足则补0），embedding向量的维度embeddingDim. 
+> attention的shape: $(\text{batchSize},\text{maxTokenNum},\text{embeddingDim})$,其中，batch的长度batchSize，单序列最大token长度maxTokenNum（若不足则补0），embedding向量的维度embeddingDim.
 
 ## cross-attention层
 cross-attention位于decoder中，encoder的输出传送给cross-attention。可以说它是encoder传输信息到decoder的入口。
+
 cross-attention的内部结构和上文的self-attention相同，不过$Q,K,V$的来源不同：
+
 $K,V$来自encoder，而$Q$来自decoder。从输入输出角度考虑，$K,V$来自于输入序列，$Q$来自于输出序列（测试时，$Q$来自于模型已预测出的部分，例如已经翻译为目标语言的部分）
 ### Related Articles
 [cross attention in transformer @medium](https://medium.com/@sachinsoni600517/cross-attention-in-transformer-f37ce7129d78)
 ## masked self-attention层
 GPT类transformer架构中具有的特殊self-attention层，位于decoder中。
+
 输入：（测试）模型的输出序列；（训练）模型输出的真值。
+
 输出：对输出序列的attention。
+
 引入动机与self-attention一致。但在利用输出计算attention存在问题：测试时，当前token之后的序列还没有被预测，因此训练时不能将后续序列引入到attention中。mask方法由此而生。

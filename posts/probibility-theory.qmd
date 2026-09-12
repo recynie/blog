@@ -5,7 +5,6 @@ description: 《概率导论》笔记
 categories:
 - math
 - probibility
-- draft
 ---
 # 概率论
 
@@ -30,6 +29,7 @@ F(x)=P(X \leq x)=\begin{cases}
 $$
 
 > The CDF $F_x(x)$ “accumulates” probability “up to” the value x.
+>
 > CDF的函数值是"X从$-\infty$到$x$的所有(可取得的)值对应概率之和".
 
 注意：一切随机变量都有CDF.
@@ -125,6 +125,7 @@ E[X]=\int_x x\ f_X(x)
 $$
 
 > - 求和符号与积分符号表示"取遍$X$的所有可能值".
+>
 > - 当$\sum_x |x|p_X(x)<\infty$或$\int_x |x|p_X(x)<\infty$时,称$X$的期望值有确切定义.
 
 > - 两式分别对应离散型和连续型的随机变量.
@@ -340,7 +341,9 @@ $$
 熵用于刻画随机变量的"不确定性"或"无序性".
 
 > > In information theory, the entropy of a random variable is the average level of "information", "surprise", or "uncertainty" inherent in the variable's possible outcomes.
+>
 > >
+>
 > > 一个随机变量的熵是指该变量可能的结果所蕴含的**不确定性**的平均水平.
 
 - 熵的基本定义:

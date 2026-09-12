@@ -4,7 +4,7 @@ date: '2026-05-25'
 description: 端到端auto-research systems相关论文的概述。调查了[handsome-rich/Awesome-Auto-Research-Tools](https://github.com/handsome-rich/Awesome-Auto-Research-Tools)中的端到端（End-to-End）自主科研系统。
 categories:
 - agent
-- auto-research
+- auto research
 - survey
 - aigc
 ---
@@ -16,7 +16,9 @@ categories:
 ## 1. autoresearch (Karpathy)
 
 **作者/机构：** Andrej Karpathy
+
 **形式：** 无正式论文，~630 行代码 + `program.md` 元编程文件
+
 **领域：** LLM 训练配方优化（nanoGPT）
 
 ### 核心方法论
@@ -41,11 +43,12 @@ categories:
 
 这是**最小化可行的自主实验循环**，不涉及论文撰写、文献综述或多 agent 协作。它证明了极简架构在狭定义域（DL 训练配方优化）上的有效性。其贡献不在于提出新方法论框架，而在于**将自主实验循环压缩到极致简洁**。
 
-
 ## 2. AI-Scientist (Sakana AI)
 
 **论文：** *The AI Scientist: Towards Fully Automated Open-Ended Scientific Discovery* (arXiv:2408.06292)
+
 **机构：** Sakana AI
+
 **领域：** ML（3 个模板：NanoGPT、2D Diffusion、Grokking）
 
 ### 核心方法论
@@ -70,11 +73,12 @@ categories:
 
 AI-Scientist 是**自主科学发现的奠基性工作**，核心贡献在于证明了"LLM + 模板"可以产生有意义的科学产出。其方法论价值在于定义了这一领域的**基本形式化问题**：给定代码库和评估协议，如何构建闭环的自主研究流水线。
 
-
 ## 3. AI-Scientist-v2 (Sakana AI)
 
 **论文：** *The AI Scientist-v2: Workshop-Level Automated Scientific Discovery via Agentic Tree Search*
+
 **成果：** 首个通过同行评审的完全 AI 生成的 Workshop 论文
+
 **领域：** 通用 ML
 
 ### 核心方法论
@@ -105,11 +109,12 @@ v2 的核心方法论创新是**去模板化（template-free）** 和**代理树
 
 v2 的核心学术贡献是将**树搜索**引入自主科研流程。它回答了"当没有模板时，如何系统性地探索假设空间"——答案是用 BFTS 做实验空间的分支探索。这与 DeepScientist 的 Bayesian optimization 形成有趣的对比。
 
-
 ## 4. AI-Researcher (HKU)
 
 **论文：** *AI-Researcher: Autonomous Scientific Innovation* (NeurIPS 2025 Spotlight)
+
 **机构：** 香港大学
+
 **领域：** 通用 AI/Data Science
 
 ### 核心方法论
@@ -134,11 +139,12 @@ AI-Researcher 是端到端的自主科研系统，获得了 NeurIPS 2025 Spotlig
 
 AI-Researcher 的方法论核心是**从概念到代码的精确映射机制**——它试图解决 LLM 在科学发现中最根本的缺陷（幻觉/不精确），通过强制在数学公式和代码之间建立显式对应关系。其 Scientist-Bench 为评估自主科研系统提供了方法论基线。
 
-
 ## 5. RD-Agent (Microsoft)
 
 **论文：** *R&D-Agent-Quant: A Multi-Agent Framework for Data-Centric Factors and Model Joint Optimization* (NeurIPS 2025)
+
 **机构：** Microsoft
+
 **领域：** 量化金融、Kaggle 自动化、Paper-to-Code
 
 ### 核心方法论
@@ -166,11 +172,12 @@ RD-Agent 是**数据中心**（data-centric）的科研自动化框架，其核�
 
 RD-Agent 定位明确：**数据密集型 R&D 的自动化**。其核心方法论贡献在于将**多臂老虎机调度**和**知识森林**引入科研流程管理。它不追求写论文，而是追求**真实科学产出的优化**（更好的因子/模型）。这在方法论上是一个不同的目标函数。
 
-
 ## 6. AutoResearchClaw (AIMING Lab)
 
 **论文：** *AutoResearchClaw: Self-Reinforcing Autonomous Research with Human-AI Collaboration* (arXiv:2605.20025)
+
 **机构：** AIMING Lab (UNC)
+
 **领域：** 通用（ML、高能物理、生物学、统计学等）
 
 ### 核心方法论
@@ -199,11 +206,12 @@ AutoResearchClaw 是目前流水线最完整（23 阶段）、领域覆盖最广
 
 AutoResearchClaw 的独特方法论贡献在于**架构全面性和自强化机制**。它不是在一个方法上创新，而是在系统层面的整合创新——证明 23 步流水线 + 跨 session 学习 + 多域专家 agent 的架构可以覆盖科学发现的各个维度。其 MetaClaw 机制是目前少数实现"经验持久化"的系统之一。
 
-
 ## 7. ARIS
 
 **论文：** 有技术报告 (arXiv:2605.03042)
+
 **作者：** wanshuiyin
+
 **领域：** 通用 ML 研究
 
 ### 核心方法论
@@ -222,7 +230,7 @@ ARIS（Auto-Research-In-Sleep）定位为一整套**方法论**（methodology）
    - `/paper-claim-audit`：论文数字是否如实报告（零上下文评审者）
    - `/citation-audit`：每个 `\cite{}` 的存在性+上下文适当性
    - `/kill-argument`：最强反驳备忘录 + 独立裁判评分
-   
+
    当 `assurance: submission` 时，若有任何层 non-green，流水线拒绝输出最终报告。这是**科研诚实性的形式化验证门**。
 
 4. **Effort × Assurance 双轴控制**：`effort`（lite/balanced/max/beast）控制计算深度，`assurance` 控制审计严格度。两轴正交，组合灵活（如 `effort: lite, assurance: conference-ready` 快速但严谨）。
@@ -233,11 +241,12 @@ ARIS（Auto-Research-In-Sleep）定位为一整套**方法论**（methodology）
 
 ARIS 的独特价值在于**将"方法论的严谨性"本身结构化进了系统**。它不是简单地"自动化科研"，而是创建了一整套**科研诚实性约束机制**——零上下文跨模型评审、五层审计链、形式化 assurance gates。这在所有端到端系统中是最系统化的质量控制方案。
 
-
 ## 8. Agent Laboratory
 
 **论文：** *Agent Laboratory: Using LLM Agents as Research Assistants* (arXiv:2501.04227)
+
 **机构：** 合作（多机构）
+
 **领域：** 通用（强调用户参与）
 
 ### 核心方法论
@@ -258,11 +267,12 @@ Agent Laboratory 的核心方法论定位与多数系统不同——它将自己
 
 Agent Laboratory 的方法论贡献不在于其流程有多先进，而在于其**对人机分工的思考**：系统不试图替代人类的创造力，而是自动化重复性高、耗时长的任务（编码、文档编写），将研究者解放出来专注于假设形成和批判性思维。AgentRxiv 的概念——agent 之间的知识接力——是其在方法论上的独特贡献。
 
-
 ## 9. DeepScientist (Westlake)
 
 **论文：** *DeepScientist: Advancing Frontier-Pushing Scientific Findings Progressively* (ICLR 2026 Top-10 Rated)
+
 **机构：** 西湖大学 (ResearAI)
+
 **领域：** 通用 AI（在 AI 文本检测、LLM 推理加速、Agent 故障归因等任务上验证）
 
 ### 核心方法论
@@ -285,7 +295,7 @@ DeepScientist 的方法论核心是用**贝叶斯优化（Bayesian Optimization�
    - **Idea Finding**：未验证假设 + LLM 估值
    - **Implement Finding**：选中后经实验验证，含实验结果
    - **Progress Finding**：仅当显著超越基线时晋升，触发深度分析并写入论文
-   
+
    失败路径**保留**（不删除），约束代理模型避免重探死路。多 GPU 并行时各实例共享 Findings Memory，每 5 轮同步，产生近乎线性的人格并发增益（4 GPU→1 progress, 16 GPU→11 progress）。
 
 5. **Research Map —— 持久化研究空间**：每个"quest"是一个真实 Git 仓库，分支=探索方向，提交=实验检查点，worktree=并行实验。Canvas UI 从 Git 结构中重建可视化的发现轨迹图。
@@ -296,11 +306,12 @@ DeepScientist 的方法论核心是用**贝叶斯优化（Bayesian Optimization�
 
 DeepScientist 是目前方法论最严谨的系统——它用**贝叶斯优化的数学框架**给自主科学发现提供了形式化基础。Findings Memory 的分级记录机制和 UCB 采样策略构成了一套完整的**探索-利用权衡理论**。其核心问题（"如何系统地引导搜索方向而非随机探索"）是整个领域的基础性问题。
 
-
 ## 10. EvoScientist (Huawei/VU Amsterdam)
 
 **论文：** *EvoScientist: Towards Multi-Agent Evolving AI Scientists for End-to-End Scientific Discovery* (arXiv:2603.08127)
+
 **机构：** Huawei Technologies / Vrije Universiteit Amsterdam
+
 **领域：** 计算 AI 研究
 
 ### 核心方法论
@@ -331,11 +342,12 @@ EvoScientist 的核心洞察是：**不应让科研流程静止（static），�
 
 EvoScientist 的独特方法论是**将元学习（meta-learning）引入自主科学发现**。EMA agent + 双记忆模块使系统在实践中变得更好。它将"演化"作为第一类概念——想法方向、实验策略、甚至评审标准都可以随时间演化。这与 DeepScientist 的 BO 框架形成互补（BO 控制单个运行的探索 vs 演化机制跨运行改进系统本身）。
 
-
 ## 11. Biomni (Stanford)
 
 **论文：** *Biomni: A General-Purpose Biomedical AI Agent* (bioRxiv, 2025)
+
 **机构：** Stanford / Genentech / Princeton / Arc Institute / UCSF
+
 **领域：** 生物医学（25 个生物医学子领域）
 
 ### 核心方法论
@@ -360,13 +372,14 @@ Biomni 是通用型生物医学 AI agent，其核心方法论取向与其他系�
 
 Biomni 的方法论贡献不在科研流水线自动化，而在**定义学科行动空间的系统化方法论**。其 Action Discovery Agent 提出了一种通用的范式：如何让 AI 自动发现、形式化、整合一个学科的计算工具和工作流。这对于将自主科研系统扩展到新兴/交叉学科具有方法论意义。
 
-
 ## 12. InternAgent (Shanghai AI Lab)
 
-**论文：** 
+**论文：**
+
 - *InternAgent 1.0* (arXiv:2505.16938) — *When Agent Becomes the Scientist*
 - *InternAgent 1.5* (arXiv:2602.08990) — *A Unified Agentic Framework for Long-Horizon Autonomous Scientific Discovery*
 **机构：** 上海人工智能实验室
+
 **领域：** 物理、生物、地球科学、AI（12+ 任务类型）
 
 ### 核心方法论
@@ -394,10 +407,10 @@ InternAgent 的核心方法论是**统一的多领域闭环框架**——同一�
 
 InternAgent 的方法论贡献在于**统一性**——它证明了同一框架可以在 12+ 任务类型、4+ 学科领域上实现自主发现。其三层记忆系统和 IdeaGraph 提供了目前为止最完善的跨 session 学习实现。FlowSearch 的"演化依赖图"将文献检索从 RAG 提升为动态规划问题。
 
-
 ## 13. claude-scholar
 
 **项目：** Galaxy-Dawn/claude-scholar
+
 **形式：** 半自动化（semi-automated）研究助手，非完全自主系统
 
 ### 核心方法论
@@ -416,10 +429,10 @@ claude-scholar 明确将自己定位为**半自动化**工具，核心原则是"
 
 claude-scholar 的方法论价值在于**知识管理的信息论严谨性**——证据门控晋升机制是比 arXiv 所有端到端系统都更严肃的知识管理方案。它更适合作为人类研究员"如何用 AI 辅助保持研究诚信"的参考。
 
-
 ## 14. DATAGEN
 
 **论文：** 无正式论文（GitHub-only 项目，~1.7k stars）
+
 **形式：** 开源多 agent 数据分析自动化框架
 
 ### 核心方法论
@@ -438,10 +451,10 @@ DATAGEN 的核心方法论是**LangGraph 状态图编排 + 专用 Note Agent** �
 
 DATAGEN 的方法论创新有限，且无正式论文验证。其 Note Agent 和 PheroPath 机制有一定启发性（解决多 agent 系统的信息共享问题），但整体上更适合作为工程参考而非学术方法论贡献。
 
-
 ## 15. Idea2Paper / Idea2Story (AgentAlpha)
 
 **论文：** *Idea2Story: An Automated Pipeline for Transforming Research Concepts into Complete Scientific Narratives* (arXiv:2601.20833)
+
 **形式：** AgentAlphaAGI/Idea2Paper
 
 ### 核心方法论
@@ -467,7 +480,6 @@ Idea2Paper 的方法论核心是**离线预计算知识图谱 + 在线检索-适
 ### 方法论定位
 
 Idea2Paper 的核心方法论贡献是**将考虑时间从运行时转移到离线预计算**。知识图谱 + 方法单元 + 评审反馈的三重结构提供了一种"**研究模式的形式化表示和检索**"方法。这在所有端到端系统中是方法论上最独特的之一——它不接受"LLM 在线推理就是够的"这一假设，而是构建了离线知识基础设施来增强、约束和引导在线推理。
-
 
 ## 16. 横向对比总结：方法论维度
 
@@ -518,12 +530,12 @@ Idea2Paper 的核心方法论贡献是**将考虑时间从运行时转移到离�
 
 ### 16.4 质量控制机制
 
-| 系统 | 质量控制手段 | 
+| 系统 | 质量控制手段 |
 |------|-------------|
 | AI-Scientist | LLM-generated peer review（标准化的评审模板）|
 | AI-Scientist v2 | Automated paper reviewer metrics |
 | AutoResearchClaw | 4-round paper quality audit + NeurIPS checklist |
-| ARIS | **5 层审计链**（含零上下文评审 + citation audit + kill argument）| 
+| ARIS | **5 层审计链**（含零上下文评审 + citation audit + kill argument）|
 | DeepScientist | Progress Finding 晋升条件（必须超越基线）|
 | AI-Researcher | Code-concept bidirectional mapping 防幻觉 |
 | claude-scholar | Evidence-Gated Claim Promotion Gates |
@@ -568,7 +580,6 @@ Idea2Paper 的核心方法论贡献是**将考虑时间从运行时转移到离�
 6. **从 ML 到自然科学**：大多数系统聚焦 AI/ML 研究。扩展到实验科学（化学、生物学实验）需要解决物理世界交互的自动化问题。AutoResearchClaw 的 ColliderAgent 和 Biomni 的 Know-How Library 是初始尝试，但远程未达
 到完全自动化的水平。
 
-
 ## 17. 参考文献索引
 
 | 系统 | 论文 / 来源 |
@@ -590,6 +601,6 @@ Idea2Paper 的核心方法论贡献是**将考虑时间从运行时转移到离�
 | DATAGEN | GitHub only — 无正式论文 |
 | Idea2Paper / Idea2Story | AgentAlpha Team, arXiv:2601.20833 (2026) |
 
-
 > **最后更新**：2026-05-25
+>
 > **注**：本文是快速文献综述（rapid survey），基于 GitHub README、arXiv 论文摘要/正文、项目文档等公开资料。部分未正式发表的系统（如 autoresearch、claude-scholar、DATAGEN）的方法论分析基于代码库和文档推断。如需深入，建议阅读原始论文全文。

@@ -1,26 +1,35 @@
 ---
 title: 基于hexo搭建博客
 date: '2025-03-10'
-date-modified: '2025-07-30'
-description: '使用Redefine主题，基于hexo框架搭建静态博客。包含配置：MathJax支持、瀑布流相册。TODO: github pages,
-  obsidian联动.'
+date-modified: '2026-09-12'
+description: '使用Redefine主题，基于hexo框架搭建静态博客，配置MathJax、瀑布流相册、GitHub Pages本地一键部署与Obsidian联动。'
 categories:
-- web
 - blog
 ---
 > 说明：本文在Ubuntu24.04.2LTS下配置，在`redefine 2.8.4`上可用。
+>
 # Hexo框架
+
 静态blog框架[hexo](https://hexo.io/)。以npm包形式发布，可在终端操作，支持markdown，可快速部署到github-pages，有丰富的插件和主题可选，使用[yaml](https://yaml.org/)文件进行配置。
 
 ## pandoc渲染器
+
 为使得markdown中的数学公式能正确渲染，使用[hexo-renderer-pandoc](https://github.com/hexojs/hexo-renderer-pandoc)渲染器替代hexo默认的[hexo-renderer-marked](https://github.com/hexojs/hexo-renderer-marked)渲染器。
+
 该渲染器使用[pandoc](https://pandoc.org/)作为渲染引擎，pandoc是功能十分强大的文档格式转换器，具有将markdown渲染为html的功能。
+
 ### 安装pandoc
+
 参见[pandoc安装指南](https://pandoc.org/installing.html)
+
 ### 配置
+
 `_config.yml`文件对项目进行配置，其中不应包含主题的相关配置。
+
 此处提供`hexo-renderer-pandoc`插件的配置，让hexo能够正确渲染mathjax和obsidian的markdown语法：
+
 在`_config.yml`中添加
+
 ```yaml
 # hexo-renderer-pandoc
 pandoc:
@@ -33,6 +42,7 @@ pandoc:
 ```
 
 其中`-f`的参数`markdown+hard_line_breaks-blank_before_header`规定了markdown的方言种类：
+
 - `+hard_line_breaks`: 单回车换行
     - 默认md语法中，一个回车会被渲染成空格、两个回车（一个空行）才被渲染成一个换行
 - `-blank_before_header`: 标题前不需要空行
@@ -41,24 +51,35 @@ pandoc:
     - 默认md语法中，列表前后需要有空行才会被正确渲染
 
 这些特性更符合obsidian的markdown格式。
+
 ### 备选渲染器
+
 可选择[hexo-renderer-kramed](https://github.com/sun11/hexo-renderer-kramed)渲染器作为替代，它使用[kramed](https://github.com/GitbookIO/kramed)作为渲染引擎，速度更快，但对MathJax支持不完全。
 
 ## MathJax数学公式支持
+
 使用[hexo-filter-mathjax](https://github.com/next-theme/hexo-filter-mathjax)插件提供服务端的MathJax渲染(Server side Renderer Plugin )。
+
 ### 安装hexo-renderer-pandoc
+
 在hexo项目目录中执行：
+
 ```shell
 npm uninstall hexo-renderer-marked  # 删除默认渲染器  
 npm install hexo-renderer-pandoc # 安装hexo-renderer-pandoc
 ```
+
 ### 安装hexo-filter-mathjax
+
 ```shell
 npm install hexo-filter-mathjax
 hexo clean  # 清除hexo已渲染的文件
 ```
+
 ### 配置
+
 在`_config.yml`中添加
+
 ```yaml
 # hexo-filter-mathjax
 # this snippet from: https://github.com/next-theme/hexo-filter-mathjax?tab=readme-ov-file#options
@@ -74,49 +95,72 @@ mathjax:
     # you can put your extension options here
     # see http://docs.mathjax.org/en/latest/options/input/tex.html#tex-extension-options for more detail
 ```
+
 ## 本地图片引用
+
 使用[hexo-asset-img](https://github.com/yiyungent/hexo-asset-img)插件，在生成网页时将markdown中的图片引用从相对路径改为绝对路径，从而避免网页图片的路径错误。
+
 ### 安装
+
 在Hexo项目目录下执行`npm install hexo-asset-img --save`安装插件
+
 ### 配置
+
 在`_config.yml`中添加配置`post_asset_folder: true`。此配置的作用是：在使用`hexo new post [post_name]`新建post时，会同时新建一个与新的post同名的文件夹(形式上是上述命令中的`post_name`，后文称作附件文件夹)用于存放markdown中引用的附件。
+
 ### 说明
+
 此插件仅会将post中对附件文件夹中图片引用从相对路径修改为绝对路径，对其他位置图片的引用不起作用。因此，确保文章中的图片全部保存在附件文件夹中。
 
 # Redefine主题
+
 [Redefine](https://redefine-docs.ohevan.com/)是Hexo框架的主题之一，配置比较简单，并且界面好看。
 
 > 本教程基于`2.8.4`，在`2.8.5`(Jul30,2025时的最新版)上会出现一些显示问题
 
 ## 安装与更新
+
 本节内容都需要在hexo项目目录下进行。
 
 两种安装方法
+
 - 使用npm安装`npm install hexo-theme-redefine@latest`
 - 使用git安装`git clone https://github.com/EvanNotFound/hexo-theme-redefine.git themes/redefine`
 
 上述两种方法分别使用如下方式更新
+
 - `npm install hexo-theme-redefine@latest`（与安装相同）
 - `cd themes/redefine && git pull`
+
 ## 自定义图像和图标
 
 ## 字体配置
+>
 > 文档中并未详细解释字体配置的具体步骤，这里是我尝试后总结的，可能并非最佳实践。
 
 ## 瀑布流相册
+
 本节基于[Redefine文档](https://redefine-docs.ohevan.com/zh/page_templates/masonry)，对此文档进行补充。
 > 此特性是最近开发的，有一些不完善的地方，文档似乎也不太完整。
+>
 ### 创建相册页面
+
 在Hexo项目目录下，使用如下命令创建页面(名称任意，此处命名为`masonry`)：
+
 ```sh
 hexo new page masonry
 ```
+
 若选用其他名字作为页面名，只需将本节所有`masonry`替换为你起的名字。
+
 打开该页面的markdown文件(`source/masonry/index.md`)，在front-matter中添加下面一行：
+
 ```markdown
 template: masonry
 ```
+
 添加后的文件示例如下：
+
 ```markdown
 ---
 
@@ -127,10 +171,15 @@ layout: page
 template: masonry
 
 ---
+
 ```
+
 `title`将显示为相册页的标题。
+
 ### 配置相册内容
+
 在你的 Hexo 项目的 `source` 文件夹里增加 `_data` 文件夹（如果已有则跳过）。在 `_data` 文件夹下新增 `masonry.yml` 文件。在 `masonry.yml` 文件里面按照如下格式配置相册信息：
+
 ```yaml
 - image: 图片 URL
   title: 图片标题
@@ -140,9 +189,13 @@ template: masonry
   title: Lorem ipsum
   description: Lorem ipsum dolor sit amet
 ```
+
 ### 在导航栏中添加相册入口
+
 修改Redefine主题配置文件(`_config.redefine.yml`)的`navbar.links`字段：
+
 （可以将入口设置在二级菜单中）
+
 ```yaml
 navbar:
     links:
@@ -155,18 +208,178 @@ navbar:
             submenu:
                 Gallery: /masonry/ # 二级菜单不支持图标
 ```
+
 ### 多相册
+
 采用上述类似方法，保证页面名称(上文的`mansory`)不同即可。
+
 ### 说明
+
 在 Hexo 中，`_data` 文件夹内的 yaml 文件会被自动加载，并赋值给全局变量（如`site.data`），这使得模板可以直接访问其中的数据。
+
 也就是说，`source/_data/masonry.yml`中的信息会被添加到位于`source/masonry/index.md`的模板中。那么`masonry`模板就自带了图片。
+
 具体解释如下：
+
 - 自动加载数据
     将 `masonry.yml` 放置在 `source/_data` 目录下，Hexo 会自动将该文件解析，并将其中的数据存储到 `site.data.masonry` 中。这意味着无论在哪个模板中，都可以通过该变量访问图片列表和其他配置。
 - 模板读取数据
     而 `mansory` 模板放置在 `source/mansory/` 目录下，模板在生成页面时，会引用 `site.data.masonry` 中的图片信息，并按照预先定义好的布局逻辑（例如瀑布流布局）来渲染页面。这样就能正确配置出瀑布流相册。
+
 # 部署与日常使用
-## github-pages部署
-部署在github-pages，免费、相对稳定（但可能需要翻墙），并且hexo支持快速部署。
+
+## GitHub Pages部署
+
+[GitHub Pages](https://docs.github.com/en/pages)可以免费托管公开仓库中的静态网站。本节使用[hexo-deployer-git](https://github.com/hexojs/hexo-deployer-git)在本地生成网页，再将生成结果推送到GitHub。完成首次配置后，一条命令即可更新网站。
+
+> 以下命令均在你自己的Hexo项目根目录中执行，该目录应包含`_config.yml`和`package.json`。本文所在博客现已迁移到Quarto，本节命令仅适用于Hexo项目。
+
+### 创建仓库与选择网址
+
+在GitHub上创建一个公开仓库，名称填写`USERNAME.github.io`，将`USERNAME`替换为你的GitHub用户名。对应的网站地址是`https://USERNAME.github.io/`。
+
+也可以使用普通仓库，例如`blog`，对应地址是`https://USERNAME.github.io/blog/`。两种方式的部署步骤相同，区别在于仓库地址和网站路径配置。
+
+本节使用专门存放网页产物的`gh-pages`分支。Hexo源码可以单独备份，也可以保存在同一仓库的`main`分支。
+
+> 部署插件会用生成的网页更新目标分支，并可能覆盖该分支的历史。请确认`gh-pages`中没有需要保留的源码或其他内容，已有站点应先备份。不要将部署目标设为保存源码的分支。
+
+### 配置Git与SSH认证
+
+先确认本机已安装Git，并设置提交身份。如果当前项目还没有配置身份，可以执行：
+
+```sh
+git --version
+git config --global user.name "你的名字"
+git config --global user.email "你的Git提交邮箱"
+```
+
+`--global`会影响当前用户的所有Git仓库；已有合适配置时跳过即可。邮箱可以使用GitHub提供的隐私邮箱。
+
+本节通过SSH推送。若尚未配置，请按GitHub的[SSH连接指南](https://docs.github.com/en/authentication/connecting-to-github-with-ssh)生成密钥，并将**公钥**添加到GitHub的 **Settings → SSH and GPG keys**。已有密钥时可以复用，注意保管私钥。
+
+测试连接：
+
+```sh
+ssh -T git@github.com
+```
+
+首次连接时，先核对提示中的主机指纹与[GitHub公布的指纹](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/githubs-ssh-key-fingerprints)一致，再确认连接。看到`Hi USERNAME! You've successfully authenticated, but GitHub does not provide shell access.`即表示认证成功；该测试仍可能返回退出码`1`，属于正常情况。
+
+### 安装插件与配置Hexo
+
+安装部署插件：
+
+```sh
+npm install hexo-deployer-git --save
+```
+
+编辑Hexo项目根目录的`_config.yml`，修改已有的`url`、`root`和`deploy`配置。它们都是顶层字段；如果已经存在，直接修改，避免重复添加。以下示例使用`USERNAME.github.io`仓库：
+
+```yaml
+url: https://USERNAME.github.io
+root: /
+
+deploy:
+  type: git
+  repo: git@github.com:USERNAME/USERNAME.github.io.git
+  branch: gh-pages
+```
+
+将所有`USERNAME`替换为自己的GitHub用户名。这里的`repo`是接收网页产物的仓库地址，与本地源码仓库的`origin`可以不同。
+
+如果使用普通仓库`blog`，则改为：
+
+```yaml
+url: https://USERNAME.github.io/blog
+root: /blog/
+
+deploy:
+  type: git
+  repo: git@github.com:USERNAME/blog.git
+  branch: gh-pages
+```
+
+`root`需要包含开头和结尾的斜杠。项目站点漏掉`/blog/`前缀时，可能出现首页可访问、样式和图片却加载失败的问题。
+
+### 首次部署与启用Pages
+
+先在本地生成并检查页面：
+
+```sh
+hexo clean
+hexo generate
+hexo server
+```
+
+打开终端提示的本地地址，确认文章、数学公式、图片和相册正常显示，再按`Ctrl+C`停止预览。本文使用Pandoc渲染器，本机需要提前安装Pandoc。
+
+生成并发布网站：
+
+```sh
+hexo generate --deploy
+```
+
+也可以简写为`hexo g -d`。该命令会生成`public/`目录，并通过部署插件推送到远端的`gh-pages`分支。单独执行`hexo deploy`主要用于发布已有生成结果；日常更新使用`hexo g -d`，确保本次修改被重新生成。
+
+首次推送成功后，在GitHub仓库中打开 **Settings → Pages**，在 **Build and deployment** 中设置：
+
+- **Source**：选择 **Deploy from a branch**。
+- **Branch**：选择 **gh-pages**，目录选择 **/(root)**。
+- 点击 **Save** 保存。
+
+如果找不到`gh-pages`，先确认上一条部署命令推送成功，再刷新页面。这里选择的是部署分支的根目录；插件已经将`public/`中的内容放到分支根目录，无需选择`/public`。
+
+等待Pages发布完成后，通过设置页显示的网站链接访问。可在仓库的 **Actions** 页面查看Pages构建和部署状态；这种方式无需自行编写GitHub Actions工作流。
+
+### 日常更新与源码备份
+
+之后在本地编辑文章、修改配置或更换图片，执行：
+
+```sh
+hexo g -d
+```
+
+修改主题、渲染配置，或发现页面残留旧内容时，可以先清理缓存再发布：
+
+```sh
+hexo clean && hexo g -d
+```
+
+本地部署只上传生成的静态文件。请另外备份`source/`、配置文件、`package.json`、`package-lock.json`和自定义主题等源码。如果使用Git管理源码，建议在`.gitignore`中保留以下条目：
+
+```text
+node_modules/
+public/
+.deploy_git/
+db.json
+```
+
+其中`.deploy_git/`是部署插件使用的本地Git工作目录。发布网站与提交源码是两个独立步骤，`hexo g -d`不会替你备份Hexo项目。
+
+### 常见问题
+
+- **`Deployer not found: git`**：确认已在当前Hexo项目中安装`hexo-deployer-git`，并检查`deploy.type`是否为`git`。
+- **`Permission denied (publickey)`**：检查SSH公钥是否已添加到GitHub、当前使用的密钥是否对应有仓库写入权限的账号，并重新运行`ssh -T git@github.com`。
+- **网站返回404**：检查Pages是否选择了`gh-pages`和`/(root)`，部署分支根目录是否有`index.html`，以及Pages部署是否完成。
+- **样式、图片或相册链接失效**：核对`url`和`root`。使用项目站点时，还需检查主题配置中手写的`/masonry/`等站点根路径，确保最终链接包含`/blog/`前缀。
+- **线上内容没有更新**：确认执行了`hexo g -d`，查看`gh-pages`的最新提交及Pages部署状态，完成后再尝试强制刷新浏览器。
+
+更多配置见Hexo官方的[一键部署文档](https://hexo.io/docs/one-command-deployment)。
 
 ## Hexo × Obsidian
+
+obsidian支持的语法和原本markdown略有区别，所以渲染时需要在`_config.yml`加下面的参数：
+
+```yml
+# hexo-renderer-pandoc 
+pandoc:
+  args:
+    - "-f"
+    - "markdown+hard_line_breaks-blank_before_header+lists_without_preceding_blankline"
+    - "-t"
+    - "html"
+    - "--mathjax"
+```
+
+然后，可以把hexo的markdown文章目录symlink到obsidian工作区下，这样就可以直接在obsidian中编辑blog了。

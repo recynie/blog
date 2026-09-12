@@ -1,9 +1,0 @@
----
-title: 'Cubic: 自定义Ubuntu Live ISO'
-date: '2025-10-13'
-date-modified: '2025-10-13'
-description: Cubic (Custom Ubuntu ISO Creator)是一个用于自定义Ubuntu iso镜像的图形化软件，可以定制镜像中的软件、文件等。它使得制作定制化的Ubuntu启动盘成为可能。也适用于许多Debian系统。
-categories:
-- softwares
-- ubuntu
----

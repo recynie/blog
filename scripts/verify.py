@@ -7,10 +7,10 @@ import re
 
 ROOT = Path(__file__).resolve().parents[1]
 SITE = ROOT / "_site"
-posts = sorted((ROOT / "posts").glob("*/index.qmd"))
+posts = sorted((ROOT / "posts").rglob("*.qmd"))
 assert posts, "No articles found"
 post_outputs = {path.relative_to(ROOT).with_suffix(".html") for path in posts}
-rendered_posts = {path.relative_to(SITE) for path in (SITE / "posts").glob("*/index.html")}
+rendered_posts = {path.relative_to(SITE) for path in (SITE / "posts").rglob("*.html")}
 assert rendered_posts == post_outputs, (rendered_posts, post_outputs)
 assert not (SITE / "drafts").exists()
 assert not list(SITE.rglob("*.qmd"))

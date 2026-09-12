@@ -21,18 +21,6 @@ Quarto 将 `.qmd` 源文件构建为 HTML，输出到 `_site/`。网站采用内
 
 数学公式由 MathJax 渲染，额外启用 `mathtools` 扩展。普通文章默认关闭代码执行，构建时无需运行文章中的命令或代码。
 
-### 交互式损失地形
-
-[《可视化损失地形：神经网络的训练轨迹》](posts/loss-landscape-visualization/index.qmd) 使用 `quarto-marimo` 将响应式 Python 单元嵌入正文：
-
-- **NumPy** 实现小型神经网络的 Adam 训练、参数轨迹投影与局部平面融合。
-- **marimo / Pyodide** 在浏览器中管理依赖和执行 Python，提交表单后更新计算结果。
-- **Plotly** 展示真实训练 MSE、二维热力图和三维地形，支持播放、暂停、复位及时间条控制。
-
-训练参数与地形参数使用独立表单，调整地形设置时复用已有训练轨迹。图表在窄屏下上下排列。不提供 GIF/MP4 导出，也不包含 ffmpeg 编码资源。
-
-构建期生成初始结果，浏览器运行时加载完成后支持交互计算。首次访问需要联网下载运行时和依赖；3D 视图需要 WebGL，较大的计算会占用浏览器 CPU 和内存。MathJax 和部分文章图片也依赖外部网络，因此网站不保证离线可用。
-
 ## 本地使用
 
 ### 环境
@@ -60,20 +48,27 @@ quarto preview --host 127.0.0.1 --port 4200 --no-browser
 
 ### 文章
 
-每篇文章放在 `posts/<文章名>/index.qmd`，可在同一目录放置专属样式和资源。例如：
+文章支持两种布局，可在同一站点混用：
+
+- **简单文章**：直接使用 `posts/<文章名>.qmd`，适合只需一个文件的内容。
+- **复杂文章**：使用 `posts/<文章名>/index.qmd`，在同一目录放置专属样式、图片和交互资源。
+
+两种布局都继承 `posts/_metadata.yml`，自动参与全站渲染、首页列表和站内搜索。输出路径分别为 `posts/<文章名>.html` 和 `posts/<文章名>/index.html`。迁移已有文章时，URL 和相对资源路径会变化，需要同步更新引用。
+
+两种布局使用相同的文章元数据，例如：
 
 ```yaml
 ---
 title: "文章标题"
 date: 2026-09-11
-categories: [Python]
+categories: [python]
 description: "文章摘要"
 ---
 ```
 
-日期使用 ISO 格式，更新日期填写 `date-modified`。分类和标签统一使用 `categories`。`posts/_metadata.yml` 提供共享作者信息、标题样式和 Markdown 解析设置。
+日期使用 ISO 格式，更新日期填写 `date-modified`。分类和标签统一使用 `categories`，内容使用小写，单词之间用空格分隔（如 `machine learning`）。`posts/_metadata.yml` 提供共享作者信息、标题样式和 Markdown 解析设置。
 
-本地草稿放在 `drafts/<文章名>/index.qmd`，设置 `draft: true`。`drafts/` 同时排除于 Git 提交和全站渲染；克隆仓库时不会获得这些草稿。发布时将文章目录移入 `posts/`，删除 `draft: true`，检查内容及资源后重新构建。单独添加 `draft` 分类标签不会隐藏文章。
+本地草稿放在 `drafts/<文章名>.qmd` 或 `drafts/<文章名>/index.qmd`，设置 `draft: true`。`drafts/` 同时排除于 Git 提交和全站渲染；克隆仓库时不会获得这些草稿。发布时将文章文件或目录移入 `posts/`，删除 `draft: true`，检查内容及资源后重新构建。单独添加 `draft` 分类标签不会隐藏文章。
 
 ### 图片与样式
 

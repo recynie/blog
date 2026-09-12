@@ -5,19 +5,26 @@ date-modified: '2025-08-24'
 description: uBlacklist用于屏蔽特定搜索结果的浏览器插件，可用于在搜索引擎中屏蔽特定域名或标题的搜索结果。常用于屏蔽CSDN等你不想在搜索结果中看到的网站。
 categories:
 - softwares
-- browser-extension
+- browser extension
 ---
 # uBlacklist简介
+
 浏览器插件uBlacklist可以屏蔽搜索引擎的搜索结果中特定网址（或标题）的条目，可用于屏蔽内容农场等低质量网站的搜索结果，增强搜索的准确性和搜索体验。
+
 uBlacklist支持Chrome系列、Firefox等主流浏览器，支持多数国际主流搜索引擎（Google、Bing、Startpage等，[完整列表](https://github.com/iorate/ublacklist#supported-search-engines)）
 
 # 基础使用
+
 uBlacklist的屏蔽方式包括
+
 - 域名匹配：屏蔽特定域名的网页
 - 标题匹配：屏蔽特定搜索条目标题的网页
 
 uBlacklist的匹配方式包括
+
 - glob匹配：简单，如`*://*.example.com/*`
 - 正则表达式匹配：灵活、强大，如`/example\.(net|org)/`
+
 # 进阶使用
+
 uBlacklist支持导入、导出屏蔽列表；支持订阅式更新屏蔽列表（从url定期更新屏蔽列表）。此外，社区提供的订阅链接也是很好的选择，如[uBlacklist subscription compilation](https://github.com/eallion/uBlacklist-subscription-compilation)项目。
