@@ -6,6 +6,7 @@
 
 ```text
 _quarto.yml                         # 全站配置、渲染范围与默认执行策略
+robots.txt                          # 搜索引擎抓取规则与站点地图地址，构建时复制到站点根目录
 index.qmd                           # 首页文章列表、分类、排序与筛选
 gallery.qmd                        # 摄影图库与灯箱入口
 posts/

@@ -104,6 +104,6 @@ uv run --with cairosvg python -c 'import cairosvg; cairosvg.svg2png(url="images/
 
 ### Google 搜索收录
 
-配置 `website.site-url` 后，Quarto 构建会生成 `_site/sitemap.xml`。部署后检查 <https://yukiguni-xennon.pages.dev/sitemap.xml> 可公开访问。在 [Google Search Console](https://search.google.com/search-console/) 中添加网址前缀 `https://yukiguni-xennon.pages.dev/`，按提示完成所有权验证，再提交 `sitemap.xml`。可通过「网址检查」为首页和重要文章请求编入索引；实际收录情况以 Search Console 报告为准。站内搜索 `website.search` 与 Google 收录独立。
+配置 `website.site-url` 后，Quarto 构建会生成 `_site/sitemap.xml`。根目录的 `robots.txt` 通过 `project.resources` 复制到构建输出，允许抓取并声明站点地图地址；更换域名时同步更新此文件。部署后检查 <https://yukiguni-xennon.pages.dev/sitemap.xml> 可公开访问。在 [Google Search Console](https://search.google.com/search-console/) 中添加网址前缀 `https://yukiguni-xennon.pages.dev/`，按提示完成所有权验证，再提交 `sitemap.xml`。可通过「网址检查」为首页和重要文章请求编入索引；实际收录情况以 Search Console 报告为准。站内搜索 `website.search` 与 Google 收录独立。
 
 仓库中的 `gh-pages` 分支保存旧 Hexo 站点，与当前 Quarto 源码独立。新站采用自身的文章路径，不维护旧站 URL 跳转。`_site/`、`.quarto/` 和本地环境缓存不提交到源码分支。
