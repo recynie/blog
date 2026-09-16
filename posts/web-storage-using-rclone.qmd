@@ -1,0 +1,337 @@
+---
+title: 在 Linux 中用 rclone 管理与挂载云盘
+date: '2025-05-12'
+date-modified: '2026-09-12'
+description: 从 WebDAV 连接配置到文件传输、FUSE 挂载和 systemd 用户服务，在 Linux 中用统一命令管理云盘，并理解缓存与数据安全边界。
+categories:
+- softwares
+- web storage
+- aiac
+---
+
+## 从云盘到统一的文件接口
+
+云盘通常提供网页和专用客户端。当文件分散在不同服务中时，下载、上传和整理的操作也随之分散。[rclone](https://rclone.org/) 为多种存储服务提供统一的命令行接口：配置一次连接，就能用相近的命令列目录、传输文件，还能将远端挂载到本地目录，让文件管理器和其他程序访问。
+
+这里需要区分两种用法：
+
+- **传输**：明确地把文件从一端复制到另一端，适合归档、迁移和批量上传。
+- **挂载**：按需访问远端文件，适合浏览资料、读取文档和轻量编辑。
+
+挂载后的路径看起来像普通目录，但访问延迟、写入完成时间和可用功能仍由网络与云盘接口决定。重要工作可以先在本地完成，再通过明确的传输步骤上传。
+
+本文集中介绍 Linux，以 Ubuntu 24.04 的软件包命令和 systemd 用户服务为例。其他发行版需要调整安装方式。原始使用记录曾在 Ubuntu 24.04 下尝试过挂载；下文整理后的完整命令与服务配置依据官方文档编写，尚未在真实云盘账户上逐项复测。
+
+## 选择云盘与连接方式
+
+### 优先使用对应的存储后端
+
+rclone 的一个连接配置称为 **remote**，后文统一命名为 `cloud`。访问它时写作 `cloud:`，冒号后可以接远端路径，例如 `cloud:Documents`。
+
+| 服务 | rclone 中的连接方式 | 需要留意 |
+|---|---|---|
+| Dropbox、Box、Google Drive、OneDrive | 对应的专用后端 | 通常通过 OAuth 授权；组织账户可能限制第三方应用 |
+| InfiniCLOUD、坚果云等提供 WebDAV 的服务 | WebDAV 后端 | 需要服务地址、用户名和应用密码等凭据 |
+| 自建 Nextcloud / ownCloud | WebDAV 后端及对应 vendor | 使用实例提供的 WebDAV 地址和认证方式 |
+
+已有专用后端时，优先按该后端的官方文档配置。各后端在校验和、修改时间、大小写和目录操作上存在差异，详见 [rclone 功能对照](https://rclone.org/overview/)。
+
+选择服务时，还应检查所在地的网络可达性、单文件大小限制、容量、流量、API 请求限制和版本恢复能力。免费配额和套餐规则会变化，本文不固定列出容量数字。
+
+### WebDAV 是什么
+
+WebDAV 是基于 HTTP 的文件访问协议，支持列目录、上传、下载和部分文件管理操作。服务端开放 WebDAV 后，多个兼容客户端就能访问同一份文件。
+
+准备连接时，需要从服务商后台获得：
+
+1. **完整的 HTTPS WebDAV 地址**，包括服务要求的路径；它通常与网页登录地址不同。
+2. **WebDAV 用户名**，可能是邮箱，也可能是单独分配的连接 ID。
+3. **应用密码或专用连接密码**。优先使用可单独撤销的凭据，避免直接复用账户登录密码。
+
+坚果云在“账户信息 → 安全选项 → 第三方应用管理”中提供应用密码，操作及限制见 [官方说明](https://help.jianguoyun.com/?p=2064)。该文档也列出了请求频率、单文件上传和单次目录列表的限制：大量小文件或大目录会更容易触及这些边界，连接成功后仍要核对列表是否完整。
+
+InfiniCLOUD 的连接信息应以自己账户的 My Page 为准。不要照搬他人的服务器地址、连接 ID 或免费容量信息。
+
+## 安装与配置
+
+### 安装 rclone 和 FUSE
+
+在 Ubuntu 中，可以先使用发行版提供的软件包：
+
+```bash
+sudo apt update
+sudo apt install rclone fuse3
+rclone version
+command -v rclone fusermount3
+```
+
+FUSE 允许普通用户运行文件系统挂载。此处使用 `fuse3` 和 `fusermount3`；旧环境可能使用 `fusermount`。阅读 apt 的安装变更提示，尤其在已安装其他 FUSE 软件时，确认依赖变动符合预期。
+
+发行版的 rclone 可能落后于上游。如果遇到已修复的后端问题或缺失参数，可按 [官方安装说明](https://rclone.org/install/) 安装适合架构的发行包。避免混用多个安装来源；升级后重新确认版本和可执行文件路径。Snap 的挂载支持存在限制，本文使用常规软件包或官方二进制。
+
+### 新建 WebDAV remote
+
+以当前普通用户运行：
+
+```bash
+rclone config
+```
+
+按交互提示填写：
+
+| 配置项 | 本文示例 |
+|---|---|
+| 新建配置 | 选择 `n` |
+| name | `cloud` |
+| Storage | 选择 `webdav` |
+| url | 服务商给出的完整 HTTPS WebDAV 地址 |
+| vendor | 有匹配服务类型时选对应项，否则选 `other` |
+| user | WebDAV 用户名 |
+| pass | 在交互提示中输入应用密码 |
+| 高级配置 | 初次使用通常选不编辑，保留默认值 |
+
+选项编号会随 rclone 版本变化，应根据名称选择。没有特殊认证要求时，bearer token 等可选项留空。最后确认保存并退出。
+
+对于 Google Drive 等专用后端，Storage 应选择对应服务，后续按提示完成浏览器授权。无图形界面的服务器可以参考该后端的远程授权流程，无需将它硬套成 WebDAV。
+
+先做只读检查：
+
+```bash
+rclone listremotes
+rclone lsd cloud:
+rclone lsf cloud: --max-depth 1
+rclone config file
+```
+
+`lsd` 列目录，`lsf` 列文件和目录。检查名称、数量和预期内容；如果列举失败，应先处理凭据、地址、网络或服务端权限，再尝试挂载。
+
+`rclone config file` 显示配置文件位置。常规 Linux 安装通常使用 `~/.config/rclone/rclone.conf`，但环境变量和安装来源可能改变它。后文的服务示例采用这个常规路径，使用前应核对。
+
+配置文件中的密码混淆可以被还原，OAuth token 也属于敏感凭据。将文件限制为仅本人读写，不要提交进 Git 或直接贴进问题报告。若路径确实是上述默认位置，可以设置：
+
+```bash
+chmod 600 ~/.config/rclone/rclone.conf
+```
+
+rclone 还支持加密整个配置文件；使用后，交互命令需要解锁，无人值守服务也要另行安排安全的解锁方式。本文服务示例不会自动处理加密配置，不应把解锁密码明文写入服务单元。
+
+## 先掌握文件传输
+
+挂载之前先熟悉命令行操作，既便于排错，也能处理不适合通过文件管理器进行的大批量传输。
+
+假设本地已有 `~/Documents/cloud-demo`，准备上传到专用远端测试目录：
+
+```bash
+# 只预演，检查源与目标
+rclone copy "$HOME/Documents/cloud-demo" cloud:cloud-demo --dry-run -P
+
+# 确认后执行
+rclone copy "$HOME/Documents/cloud-demo" cloud:cloud-demo -P
+
+# 下载到另一个本地目录
+rclone copy cloud:cloud-demo "$HOME/Downloads/cloud-demo" -P
+```
+
+目录复制会把**源目录中的内容**放入指定目标，不会自动额外套一层源目录名。`-P` 显示进度。`copy` 不删除目标端独有的文件，但可能更新或覆盖同路径文件，因此测试时仍应使用独立目录。
+
+几个容易混淆的命令：
+
+| 命令 | 语义 | 风险 |
+|---|---|---|
+| `copy` | 从源复制到目标 | 同路径内容可能被更新 |
+| `move` | 传输后移除源端相应文件 | 会改变源端，迁移前需要备份 |
+| `sync` | 单向更新目标，使其与源一致 | 会删除目标中源端没有的文件 |
+| `mount` | 将远端暴露为本地文件系统路径 | 经挂载点的写入和删除会作用于远端 |
+
+`sync` 是单向镜像。只有确实希望目标跟随源变化时才使用，先查看预演：
+
+```bash
+rclone sync "$HOME/Documents/cloud-demo" cloud:cloud-demo --dry-run -P
+```
+
+核对方向和删除列表后，再决定是否移除 `--dry-run`。日常上传默认从 `copy` 开始。无论 copy 还是 sync，都不会自动建立可回溯的多版本备份。
+
+## 将云盘挂载为目录
+
+### 第一次用只读挂载
+
+创建一个专用空目录，用普通用户运行：
+
+```bash
+mkdir -p "$HOME/mnt/cloud"
+rclone mount cloud: "$HOME/mnt/cloud" --read-only --log-level INFO
+```
+
+不要使用已有重要文件的目录作为挂载点：挂载会暂时遮住其中的本地内容。该命令在前台持续运行，保留这个终端，在另一个终端或文件管理器中打开 `~/mnt/cloud` 检查读取。
+
+确认完成后在前台按 `Ctrl-C` 停止。若挂载仍残留，先关闭正在访问它的程序，再执行：
+
+```bash
+fusermount3 -u "$HOME/mnt/cloud"
+```
+
+遇到“busy”先排查仍打开的文件或停留在挂载目录的终端。不要用删除挂载目录的方式卸载，也不要把强制或懒卸载当作常规退出步骤。
+
+### 需要编辑时启用 VFS 缓存
+
+很多编辑器会随机写入、创建临时文件或用重命名保存文件。使用 rclone 的 VFS 写缓存有助于兼容这些访问方式：
+
+```bash
+mkdir -p "$HOME/.cache/rclone-cloud"
+rclone mount cloud: "$HOME/mnt/cloud" \
+  --vfs-cache-mode writes \
+  --cache-dir "$HOME/.cache/rclone-cloud" \
+  --vfs-cache-max-size 5G \
+  --dir-cache-time 1m \
+  --log-level INFO
+```
+
+这一步应在前一次挂载已停止后进行。
+
+| 参数 | 含义 |
+|---|---|
+| `--vfs-cache-mode writes` | 在本地缓存写入的文件，关闭后再上传 |
+| `--cache-dir` | 明确缓存目录，便于检查剩余空间和恢复 |
+| `--vfs-cache-max-size 5G` | 为缓存设置清理目标，按本地空间调整 |
+| `--dir-cache-time 1m` | 目录列表缓存一分钟，在新鲜度与请求量之间取舍 |
+| `--log-level INFO` | 输出传输和运行信息，便于观察写回 |
+
+`writes` 适合一般编辑；`full` 还会缓存读取的数据，适合需要反复读取或随机读取的场景，但占用更多本地空间。**缓存大小不是硬性上限**：清理按周期进行，正在使用或尚未完成写回的内容可能让占用超过设定值。
+
+缓存写回具有延迟。应用显示“保存成功”时，文件可能仍只在本地缓存里；默认写回等待通常为文件关闭并闲置约 5 秒，之后还需要实际上传时间。关机、断网或停止挂载前，应关闭编辑程序、检查日志，并通过直接访问 remote 或服务商网页确认重要内容已上传。
+
+如果中断时仍有待上传文件，保留原缓存，以相同的 remote、缓存目录和参数重新启动，让 rclone 继续处理。不要清空待写回缓存，也不要让两个挂载进程同时使用同一份缓存访问重叠的远端路径。
+
+### 用测试文件检查读写链路
+
+先在可写挂载中建立一个临时测试目录：
+
+```bash
+probe_dir="$(mktemp -d "$HOME/mnt/cloud/rclone-probe.XXXXXX")"
+printf 'rclone mount test\n' > "$probe_dir/hello.txt"
+basename "$probe_dir"
+```
+
+记下输出的目录名。等日志显示该文件完成上传后，用直接访问 remote 的命令读取它，替换下面的目录名：
+
+```bash
+rclone cat cloud:rclone-probe.XXXXXX/hello.txt
+```
+
+这个检查绕过挂载点的本地视图，可以验证远端确实收到了内容。再通过网页核对一次会更直观。最后清理刚创建的测试目录即可；经挂载点删除同样会删除远端内容。
+
+若其他设备修改了文件，本机目录列表可能暂时不更新。支持变更轮询的后端可以更快获知变化，普通 WebDAV 通常依赖目录缓存到期。缩短缓存时间会增加请求数，尤其要结合服务商的限流策略；目录刷新也无法解决多客户端同时编辑同一文件的冲突。
+
+## 登录后自动挂载：systemd 用户服务
+
+先完成手动挂载测试，再交给 systemd 管理。用户服务可以随用户会话启动，并把日志集中到 journal；无需为个人云盘长期运行 root 进程。
+
+以下配置假设：
+
+- remote 名为 `cloud`；
+- `rclone` 位于 `/usr/bin/rclone`，`fusermount3` 位于 `/usr/bin/fusermount3`；
+- 配置位于 `~/.config/rclone/rclone.conf`，且启动时无需交互解锁；
+- 挂载点和缓存沿用上文路径。
+
+先用 `command -v` 和 `rclone config file` 检查，不一致时修改服务中的路径。手动挂载应先停止，避免同一挂载点或缓存被重复使用。
+
+```bash
+mkdir -p "$HOME/.config/systemd/user" "$HOME/mnt/cloud" "$HOME/.cache/rclone-cloud"
+```
+
+创建 `~/.config/systemd/user/rclone-cloud.service`：
+
+```ini
+[Unit]
+Description=Mount personal cloud storage with rclone
+StartLimitIntervalSec=0
+
+[Service]
+Type=notify
+ExecStart=/usr/bin/rclone mount cloud: %h/mnt/cloud \
+    --config=%h/.config/rclone/rclone.conf \
+    --cache-dir=%h/.cache/rclone-cloud \
+    --vfs-cache-mode=writes \
+    --vfs-cache-max-size=5G \
+    --dir-cache-time=1m \
+    --log-level=INFO
+ExecStop=/usr/bin/fusermount3 -u %h/mnt/cloud
+Restart=on-failure
+RestartSec=15
+TimeoutStopSec=120
+
+[Install]
+WantedBy=default.target
+```
+
+`%h` 是 systemd 的用户主目录占位符。`ExecStart` 使用明确路径和参数，不能像 Shell 命令那样依赖 `~` 展开。`Type=notify` 让 rclone 在挂载点建立后报告启动就绪；此处不要再加 `--daemon`。
+
+服务在进程异常退出后每 15 秒重试，关闭启动频率上限可以避免登录时网络尚未可用导致彻底停止重试。代价是错误凭据或错误路径也会不断重试，所以启用后必须检查日志。普通网络断开时，rclone 也可能继续运行并在内部重试，此时由它自身处理网络恢复。
+
+用户级 `network-online.target` 无法可靠地表示系统已经联网，而且网络就绪本身也不保证远端服务可达。这里通过启动重试处理暂时性故障，不依赖用户服务中的网络 target 排序。
+
+加载并启用：
+
+```bash
+systemctl --user daemon-reload
+systemctl --user enable --now rclone-cloud.service
+systemctl --user status rclone-cloud.service
+journalctl --user -u rclone-cloud.service -n 50 --no-pager
+```
+
+看到 `active` 说明挂载进程已就绪，仍要按前面的测试方法检查远端读写。修改配置后运行 `daemon-reload`，确认上传完成再重启服务：
+
+```bash
+systemctl --user restart rclone-cloud.service
+```
+
+临时停止或取消自动启动：
+
+```bash
+systemctl --user stop rclone-cloud.service
+systemctl --user disable --now rclone-cloud.service
+```
+
+停止前先完成待写回上传。`TimeoutStopSec` 只是 systemd 的停止等待期限，无法保证任意大小的文件都能在两分钟内上传完成。
+
+通常用户服务随登录启动，用户管理器何时退出受会话和系统设置影响。如果确实需要无人登录时也在开机启动，可由有权限的用户显式开启 linger：
+
+```bash
+loginctl enable-linger "$USER"
+```
+
+这会改变用户管理器的生命周期。个人桌面仅需登录后挂载时可以跳过；开机阶段加密主目录可能尚未解锁，还要考虑凭据和缓存的可访问性。取消时使用 `loginctl disable-linger "$USER"`。
+
+## 常见问题与使用边界
+
+| 现象 | 优先检查 |
+|---|---|
+| `401` / `403` | 应用密码、授权是否撤销、用户名和目录权限 |
+| `404` 或找不到路径 | 是否误用了网页地址，WebDAV URL 是否缺少必要路径 |
+| `429` 或频繁限流 | 降低并发与请求频率，适当延长目录缓存，查看服务商限制 |
+| 手动正常，用户服务失败 | 二进制路径、配置路径、交互解锁要求和 journal 日志 |
+| `mountpoint is not empty` | 是否选错目录或已有挂载；使用专用空目录 |
+| FUSE 权限或设备错误 | fuse3、`/dev/fuse`、容器权限与系统安全策略的具体报错 |
+| `Transport endpoint is not connected` | 挂载进程是否已退出；关闭使用者后卸载残留挂载，再重新启动 |
+| 保存后网页看不到文件 | 文件是否仍打开、缓存是否待上传、日志是否记录错误 |
+
+遇到安全策略拦截时，应根据具体日志和发行版文档处理，避免为挂载云盘直接关闭整套安全保护。个人挂载也不需要默认开启 `--allow-other`；该选项会扩大本机其他用户的访问范围，确有共享需求时再研究权限配置。
+
+以下边界值得长期记住：
+
+- **挂载不等于离线同步。** 未缓存的内容在断网时不可用，缓存清理后也可能需要重新下载。
+- **远端接口不具备完整的本地文件系统语义。** 数据库、虚拟机磁盘、构建目录和大量小文件的活跃 Git 工作区更适合保留在本地。
+- **避免多客户端并发修改同一文件。** VFS 缓存不会自动提供分布式锁和冲突合并。
+- **云盘副本需要配合备份策略。** 误删和覆盖可能传播到远端，重要数据应有独立、可恢复的历史版本。
+- **缓存本身也含有数据。** 保护缓存目录及本地磁盘；需要让服务商看不到文件内容时，可进一步了解 [rclone crypt](https://rclone.org/crypt/)，并单独备份密钥。
+
+对于个人资料管理，一个稳妥的起点是：先用 `copy` 完成明确的文件传输，再只读挂载验证浏览体验，最后根据需要启用写缓存和自动挂载。每一步都能单独检查，出问题时也更容易定位。
+
+## 参考资料
+
+- [rclone 安装与后台运行](https://rclone.org/install/)
+- [WebDAV 后端配置](https://rclone.org/webdav/)
+- [rclone mount：FUSE、VFS 缓存与 systemd](https://rclone.org/commands/rclone_mount/)
+- [rclone copy](https://rclone.org/commands/rclone_copy/) 与 [rclone sync](https://rclone.org/commands/rclone_sync/)
+- [存储后端功能差异](https://rclone.org/overview/)
+- [坚果云 WebDAV 应用授权与访问限制](https://help.jianguoyun.com/?p=2064)

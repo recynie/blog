@@ -1,0 +1,350 @@
+---
+title: Linux 终端工具：搜索、导航与系统排查
+date: '2026-03-02'
+date-modified: '2026-09-12'
+description: 从 fd、ripgrep、fzf 到 tmux、witr 和 lazygit，整理 Linux 下的搜索导航、会话管理、系统排查、文件编辑与 Git 操作工具。
+categories:
+- softwares
+- linux
+- aiac
+---
+
+## 引言
+
+在终端里工作，很多时间花在寻找上：找到一个目录、一段代码、占用磁盘的文件，或者占着开发端口的进程。`find`、`grep`、`ps` 等基础工具提供了可靠的入口，也适合写进脚本。日常交互操作还可以借助更方便的默认设置、模糊搜索与可视化界面。
+
+本文按任务介绍一组 Linux 工具。它们可以组合使用：`fd` 生成候选文件，`fzf` 帮你选择，`micro` 打开文件；`btop` 发现异常进程，`witr` 继续追查启动来源。先解决自己最常遇到的问题，再逐步增加工具，通常更容易形成稳定的工作习惯。
+
+下文命令以 Bash 为例。安装优先使用发行版软件包；仓库版本缺少所需功能时，再参考各工具链接中的官方安装说明。示例路径、关键词和 PID 需要按自己的环境替换。
+
+## 文件搜索与目录导航
+
+### 文件名搜索：fd
+
+[`fd`](https://github.com/sharkdp/fd) 适合“知道名字的一部分，却忘了文件在哪”的场景。默认递归搜索当前目录，以正则表达式匹配文件名；输出带颜色，并默认跳过隐藏文件和 Git 忽略的内容。
+
+```bash
+fd report                  # 查找名称包含 report 的文件或目录
+fd -e pdf . ~/Documents     # 只找 PDF 文件
+fd -t d project ~           # 只找目录
+fd -g '*.qmd'               # 使用 glob 模式
+fd -H -I '^config$' .       # 包含隐藏和被忽略的内容
+```
+
+注意最后一个例子里的 `-H` 与 `-I` 分别控制隐藏文件和忽略规则。找不到配置文件时，先检查搜索范围，再怀疑文件是否存在。默认只匹配名称，需要匹配完整路径时加 `-p`。
+
+在 Debian / Ubuntu 中，软件包通常叫 `fd-find`，可执行文件叫 `fdfind`。后文使用 `fd`；如果系统里只有 `fdfind`，将命令替换即可。Shell 别名只对相应 Shell 生效，其他工具调用 `fd` 时还要留意可执行文件名。
+
+### 文件内容搜索：ripgrep（rg）
+
+[`ripgrep`](https://github.com/BurntSushi/ripgrep) 的命令名是 `rg`，适合查找代码、日志和笔记中的文本。它默认递归搜索，也会跳过隐藏文件、二进制文件和被忽略的路径。
+
+```bash
+rg -n 'TODO|FIXME' .        # 正则匹配，并显示行号
+rg -n -F 'a.b' .            # 按字面量搜索，点号不表示任意字符
+rg -n -t py 'learning_rate' # 只搜索 Python 文件
+rg -l 'Transformer' -g '*.qmd' # 只输出匹配的文件名
+rg --hidden --no-ignore -n 'proxy' ~/.config
+```
+
+`fd` 根据路径找文件，`rg` 根据内容找位置，两者分工很清楚。最后一条命令可能扫描大量缓存和配置，也可能输出凭据；共享搜索结果前应先检查内容。
+
+### 交互式选择：fzf
+
+[`fzf`](https://github.com/junegunn/fzf) 是通用的模糊选择器。它读取一组候选项，允许你输入几个不连续的字符缩小范围，再把选中的项目输出给下一个命令。
+
+```bash
+fd -t f | fzf
+```
+
+按方向键或 `Ctrl-J` / `Ctrl-K` 移动，回车确认，`Esc` 取消。候选项也可以是 Git 分支、历史命令或服务器名称。
+
+如果要把文件交给编辑器，可以使用 NUL 分隔，处理带空格甚至换行的文件名：
+
+```bash
+fd -t f -0 | fzf --read0 --print0 | xargs -0 -r -o micro --
+```
+
+这里的 `xargs -r` 避免取消选择后仍启动编辑器，`-o` 让编辑器重新从终端读取输入。这两个选项适用于本文的 GNU/Linux 环境。
+
+Shell 集成还能提供 `Ctrl-R` 搜索历史、`Ctrl-T` 选择路径、`Alt-C` 切换目录。在支持相应选项的新版 fzf 中，将下面一行加入 `~/.bashrc`，再打开新终端：
+
+```bash
+eval "$(fzf --bash)"
+```
+
+旧版发行包可能没有 `--bash`。此时应按该软件包说明加载配套的补全和按键绑定脚本，避免同时启用两套初始化配置。
+
+### 代码结构搜索：ast-grep
+
+[`ast-grep`](https://ast-grep.github.io/guide/quick-start.html) 使用语法树匹配代码结构。例如查找 JavaScript 中的 `console.log` 调用：
+
+```bash
+ast-grep --pattern 'console.log($$$ARGS)' --lang js src/
+```
+
+`$$$ARGS` 可以匹配多个参数。与按行搜索相比，结构匹配能够容忍空格、换行等排版差异。模式应使用单引号，防止 Shell 把 `$` 当作变量展开。
+
+它适合查找特定调用形式、检查代码模式，以及配合规则进行批量重构。跨文件的符号解析、类型推断和精确引用查找仍应使用语言服务器或编译器工具。进行替换时先检查匹配结果，再交互确认修改并运行测试。
+
+官方也提供 `sg` 命令名，但 Linux 已有同名的用户组切换命令。本文统一使用 `ast-grep`，减少冲突。
+
+### 有记忆的目录切换：zoxide
+
+[`zoxide`](https://github.com/ajeetdsouza/zoxide) 根据访问频率和最近访问情况给目录排序。启用 Shell 集成后，它会逐步记住你去过的地方。
+
+将下面一行加入 `~/.bashrc`：
+
+```bash
+eval "$(zoxide init bash)"
+```
+
+重新打开终端，先正常访问几次常用目录，再尝试：
+
+```bash
+z project       # 跳转到最匹配的已记录目录
+z work blog     # 用多个关键词缩小范围
+zi blog         # 借助 fzf 交互选择
+```
+
+`zoxide` 的数据库来自使用历史；寻找从未访问过的目录时，`fd` 更合适。`zi` 需要安装兼容版本的 fzf，具体最低版本以 zoxide 文档为准。
+
+### 终端文件管理器：Yazi
+
+[`Yazi`](https://yazi-rs.github.io/docs/quick-start/) 提供目录列表、文件预览、多选和复制移动操作，适合需要一边浏览、一边整理文件的任务。
+
+```bash
+yazi ~/Downloads
+```
+
+整体采用类似vim的操作逻辑，几个常用按键：
+
+| 按键 | 操作 |
+|---|---|
+| `h` / `j` / `k` / `l` | 返回上级、下移、上移、进入目录 |
+| 空格 | 切换当前项目的选择状态 |
+| `y`，然后 `p` | 复制选中项目，再粘贴 |
+| `r` | 重命名 |
+| `.` | 显示或隐藏隐藏文件 |
+| `q` | 退出 |
+| `F1` 或 `~` | 查看帮助 |
+
+文件搜索、内容搜索和部分预览功能依赖外部工具，如 fd、ripgrep 和媒体处理程序；图片预览效果还取决于终端支持。按需安装依赖即可。
+
+直接运行 `yazi`，退出后父 Shell 的工作目录通常不变。若希望退出时留在浏览到的位置，按官方快速入门配置 `y` Shell 包装函数。
+
+## 终端会话管理：tmux
+
+[`tmux`](https://github.com/tmux/tmux/wiki/Getting-Started) 可以在一个终端中管理多个窗口和分屏，并将工作会话与当前连接分离。远程开发时，可以用一个窗格编辑代码，另一个运行任务，再开一个窗口查看日志；断开连接后重新接入，继续使用原来的环境。
+
+先区分三个概念：**会话（session）**组织一项工作，**窗口（window）**类似标签页，**窗格（pane）**是窗口内分割出来的终端区域。初次使用，只需创建一个命名会话：
+
+```bash
+tmux new -s work
+```
+
+在这个会话里启动需要保留的程序。tmux 的默认前缀键是 `Ctrl-B`：先按下并松开，再按下面的按键；不要一直按住 Ctrl。
+
+| 前缀键之后按 | 操作 |
+|---|---|
+| `c` | 新建窗口 |
+| `n` / `p` | 切换到下一个 / 上一个窗口 |
+| `%` | 左右分屏 |
+| `"` | 上下分屏 |
+| 方向键 | 切换活动窗格 |
+| `z` | 放大当前窗格，再按一次恢复布局 |
+| `d` | 分离会话，回到外层终端 |
+| `?` | 查看快捷键帮助 |
+
+分离后，在外层终端查看和恢复会话：
+
+```bash
+tmux ls
+tmux attach -t work
+```
+
+`Ctrl-B` 后按 `d` 会保留会话中的程序；在窗格里执行 `exit` 则会退出该 Shell，通常也会关闭窗格。两种退出方式要分清。
+
+要应对 SSH 断线，**tmux 必须运行在远端服务器上**，任务也必须在其中启动。仅在本地运行 tmux，再从里面 SSH 到远端，无法保护远端任务免受连接中断影响。
+
+tmux 保留的是仍在运行的会话。服务器重启、tmux 服务进程退出，或系统在用户注销时清理进程，都可能结束任务。长期服务应交给 systemd，集群计算应使用调度系统；重要计算仍需保存检查点。先熟悉默认操作，再考虑修改 `~/.tmux.conf` 或添加插件。
+
+## 资源监控与进程排查
+
+这些工具回答的问题不同：系统是否繁忙、空间被谁占用、GPU 上跑着什么，以及某个进程为什么会存在。按问题选择入口，比同时打开多个监控界面更有效。
+
+### 进程与系统负载：htop / btop
+
+[`htop`](https://github.com/htop-dev/htop) 提供可排序、可搜索的进程列表；[`btop`](https://github.com/aristocratos/btop) 将 CPU、内存、磁盘、网络和进程整理为可视化面板。
+
+```bash
+htop
+# 或
+btop
+```
+
+想快速查看某个进程的 CPU、内存和命令行，可以从 htop 开始；想同时观察多个资源的变化趋势，可以选 btop。htop 中按 `/` 搜索、`t` 切换树形视图，帮助菜单会列出当前版本的快捷键。
+
+看到高占用只是排查的起点。负载升高可能来自计算、磁盘等待或大量并发任务，还要结合进程状态和具体工作负载判断。结束进程前确认所属用户、启动来源和未保存数据；受服务管理器监管的进程被杀掉后可能自动重启。
+
+### Why is this running? 进程管理工具：witr
+
+[`witr`](https://github.com/pranshuparmar/witr) 的名字来自 **Why is this running?**。它将进程、端口等目标关联到 PID，再整理父进程链、启动来源和运行上下文。可以用它查看端口占用情况（关联到进程）、容器运行情况，快速定位进程，避免使用复杂的组合命令去找进程。
+
+TUI交互界面：
+
+```bash
+witr
+```
+
+例如开发服务器提示端口已被占用，先查占用者：
+
+```bash
+witr --port 4200
+witr --pid 12345 --tree     # 将 12345 换成实际 PID
+witr node                  # 按进程或服务名称查找
+witr --port 4200 --short    # 简短显示来源链
+witr --pid 12345 --json     # 供脚本继续处理
+```
+
+输出可能说明进程来自当前 Shell、systemd 服务、进程管理器或容器，并附带工作目录、命令行等信息。这样就能决定该去哪个终端停止开发服务，或者检查哪个服务单元。对于“关掉后又出现”的进程，启动和监管来源尤其有用。
+
+安装可参考项目的发行包或包管理器说明。不同版本支持的目标和交互功能会变化，先用 `witr --version` 和 `witr --help` 核对。
+
+### 综合监控：Glances
+
+[`Glances`](https://nicolargo.github.io/glances/) 在一个界面里汇总 CPU、内存、进程、网络、磁盘 I/O 等指标，还支持扩展监控、数据导出和 Web 界面。
+
+使用 uv 将这个 Python 工具安装到独立环境：
+
+```bash
+uv tool install glances
+glances
+```
+
+它适合需要较多指标的服务器巡检。基本终端监控不必安装全部扩展；容器、传感器或 Web 功能所需依赖按官方文档补充。远程访问优先考虑 SSH；若启用 Web 服务，还应配置监听地址、认证和网络访问控制。
+
+### NVIDIA GPU 监控：nvitop
+
+[`nvitop`](https://nvitop.readthedocs.io/en/latest/) 面向 NVIDIA GPU，能够同时显示设备状态和相关进程，适合训练任务中的显存、利用率和进程占用排查。
+
+```bash
+uv tool install nvitop
+nvitop
+```
+
+临时使用也可以运行 `uvx nvitop`。它依赖可用的 NVIDIA 驱动及 NVML；如果 `nvidia-smi` 都无法识别显卡，应先排查驱动或容器的 GPU 暴露方式。
+
+显存占用与计算利用率需要一起看：进程保留大量显存时，GPU 也可能正在等待数据。nvitop 提供观察线索，定位训练瓶颈还需要结合数据加载、CPU 和 I/O 指标。
+
+### 磁盘空间分析：ncdu 与 Baobab
+
+[`ncdu`](https://dev.yorhel.nl/ncdu/man) 扫描目录后，用终端界面展示空间占用，适合 SSH 环境：
+
+```bash
+ncdu -r -x "$HOME"
+```
+
+`-r` 禁用界面中的删除功能，适合作为第一次排查；`-x` 限制在同一文件系统，避免顺着子目录进入其他挂载盘。扫描过程中仍可能产生明显 I/O，建议先从怀疑的目录开始。
+
+查看文件系统整体容量用 `df -h`，定位目录内部的占用用 ncdu。两者统计口径可能不同：已删除但仍被进程打开的文件、权限限制、快照等都可能造成差异。
+
+[`Baobab`](https://apps.gnome.org/Baobab/) 是 GNOME 的图形化磁盘分析器，提供目录树和图形占用展示。它是本文保留的一个桌面工具补充，适合在本机用鼠标查看空间分布；纯终端环境选择 ncdu 即可。
+
+无论用哪种工具，都应先确认大目录的用途。缓存可由对应软件清理；数据库、容器存储和系统目录应按各自管理方式处理。
+
+## 编辑器
+
+### 轻量编辑：micro
+
+[`micro`](https://micro-editor.github.io/) 适合临时修改配置、脚本和笔记。它支持语法高亮、鼠标和较熟悉的快捷键，上手成本较低。
+
+```bash
+micro notes.md
+```
+
+常用操作包括 `Ctrl-S` 保存、`Ctrl-Q` 退出、`Ctrl-F` 查找；`Ctrl-G` 打开帮助。复制粘贴能否连接系统剪贴板取决于终端、桌面环境和远程连接条件。只想完成一次简单编辑时，micro 是很直接的选择。
+
+### 长期开发环境：Neovim × LazyVim
+
+[`Neovim`](https://neovim.io/) 提供模态编辑和可扩展的开发环境；[`LazyVim`](https://www.lazyvim.org/) 是一套基于 Neovim 的预配置方案，通过 lazy.nvim 管理插件，将搜索、补全、语言服务器等功能组织起来。LazyVim 与插件管理器 lazy.nvim 是两个不同的项目。
+
+如果经常在终端中阅读和修改代码，值得投入时间学习 Vim 的移动、模式切换和文本对象。只需偶尔改配置时，micro 更省学习成本。
+
+开始前按 [LazyVim 安装说明](https://www.lazyvim.org/installation) 核对 Neovim、Git 和编译依赖要求，尤其留意发行版中的 Neovim 是否过旧。已有配置应先备份。也可以用独立应用名试用，保留原来的 `nvim` 环境：
+
+```bash
+# 目标目录须尚不存在
+git clone https://github.com/LazyVim/starter ~/.config/nvim-lazyvim
+NVIM_APPNAME=nvim-lazyvim nvim
+```
+
+这里的 `NVIM_APPNAME` 将配置及相应数据目录隔离到另一个名称下；后续启动试用环境也要带上它。首次启动会下载插件，部分语言工具还需要另行安装。进入后运行 `:LazyHealth` 查看依赖检查结果。
+
+## Git 操作与差异阅读
+
+Git 工具可以按任务分工：lazygit 提供交互式操作界面；delta 和 diff-so-fancy 改善已有 diff 的展示；difftastic 根据语法结构计算差异。可以先临时体验，选定后再保存配置。
+
+### 交互式 Git 操作：lazygit
+
+[`lazygit`](https://github.com/jesseduffield/lazygit) 将工作区文件、暂存区、分支和提交历史放在同一个终端界面里，适合边看改动、边组织提交。安装后，在已有 Git 仓库内运行：
+
+```bash
+lazygit
+```
+
+可以从一次普通提交开始熟悉它：
+
+1. 在文件面板选择修改过的文件，查看右侧差异。
+2. 需要拆分改动时，进入差异视图，按行或代码块暂存；默认空格可以暂存选中的行，`v` 可以开始选择一段范围。
+3. 检查暂存内容，再通过提交操作填写说明。
+4. 在提交历史中检查结果，确认当前分支和远端后再决定是否推送。
+
+快捷键取决于当前面板和版本，操作时先看界面底部提示及帮助菜单。它还支持分支切换、stash、cherry-pick 和交互式 rebase，尤其适合整理本地尚未共享的提交。
+
+lazygit 执行的仍是真实 Git 操作。丢弃工作区改动、reset、删除分支和改写提交历史前，要读清确认提示；已经共享的历史应先与协作者沟通。它基于 reflog 的撤销功能也无法恢复所有工作区或 stash 变化，不能把它当作通用的撤销按钮。
+
+相比只美化 diff 的工具，lazygit 的主要价值是把查看、选择和操作放到一起。理解工作区、暂存区和提交的关系后，界面才更容易用得准确。
+
+### 带语法高亮的分页器：delta
+
+[`delta`](https://dandavison.github.io/delta/get-started.html) 为 Git diff 提供语法高亮、行内变化强调和可选的并排展示。安装后，在仓库内临时试用：
+
+```bash
+git -c core.pager=delta diff
+```
+
+满意后，将以下配置合并进 `~/.gitconfig` 的相应区段，保留已有的其他设置：
+
+```ini
+[core]
+    pager = delta
+[interactive]
+    diffFilter = delta --color-only
+[delta]
+    navigate = true
+```
+
+`navigate` 允许用 `n` / `N` 在差异区段间导航。delta 改善阅读体验，Git 本身仍负责生成通常的文本 diff。
+
+### 结构化差异：difftastic（difft）
+
+[`difftastic`](https://difftastic.wilfred.me.uk/git.html) 的命令名是 `difft`。它对支持的语言进行语法分析，在格式调整和代码变化混杂时，通常更容易看出结构变化。
+
+```bash
+difft old.py new.py
+git -c diff.external=difft diff
+git -c diff.external=difft show --ext-diff
+```
+
+结构化比较需要额外计算；不支持的语言会采用文本比较。它的输出适合阅读，生成补丁仍使用标准 Git diff。官方还提示 Git 2.43.1 及更早版本在外部 diff 遇到权限变更时可能崩溃，旧环境应升级 Git 或按文档使用 difftool 配置。
+
+### 简洁的 diff 美化：diff-so-fancy
+
+[`diff-so-fancy`](https://github.com/so-fancy/diff-so-fancy) 简化 diff 的头部与分隔标记，并强调行内变化。它适合喜欢传统单栏 diff、又希望降低阅读噪声的人。
+
+```bash
+git -c core.pager='diff-so-fancy | less --tabs=4 -RF' diff
+```
+
+它与 delta 的职责重叠，选一种作为默认分页器即可。如果从 delta 切换，还应一起检查 `interactive.diffFilter` 的配置，避免普通 diff 和交互式暂存混用不符合预期的展示方式。
