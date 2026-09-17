@@ -1,6 +1,7 @@
 ---
 title: End-to-End Auto-Research Systems方法论调查
 date: '2026-05-25'
+date-modified: '2026-05-25'
 description: 端到端auto-research systems相关论文的概述。调查了[handsome-rich/Awesome-Auto-Research-Tools](https://github.com/handsome-rich/Awesome-Auto-Research-Tools)中的端到端（End-to-End）自主科研系统。
 categories:
 - agent

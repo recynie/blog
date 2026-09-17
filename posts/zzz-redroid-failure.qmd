@@ -1,6 +1,7 @@
 ---
 title: 在 Redroid 里运行《绝区零》的失败经历：x86 转译与 DGX Spark ARM64 图形栈
 date: '2026-08-07T00:00:00'
+date-modified: '2026-08-07T00:00:00'
 description: 记录一次把《绝区零》自动化迁移到 Linux + Redroid 的尝试：x86_64 路线受 ARM native bridge 兼容性阻塞，DGX
   Spark ARM64 路线移除了转译层后又卡在 Android 图形栈，自动化改造最终暂停在游戏运行这一前置条件上。
 categories:
