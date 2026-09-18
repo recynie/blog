@@ -5,7 +5,6 @@ date-modified: '2025-09-01'
 description: micro编辑器，基于命令行的现代文本编辑器。开箱即用，快捷键查找便捷，自定义程度高。可作为nano的上位替代。
 categories:
 - softwares
-- editor
 - aigc
 ---
 

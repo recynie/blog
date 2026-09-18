@@ -6,7 +6,6 @@ description: 端到端auto-research systems相关论文的概述。调查了[han
 categories:
 - agent
 - auto research
-- survey
 - aigc
 ---
 

@@ -4,9 +4,8 @@ date: '2025-06-26'
 date-modified: '2025-07-08'
 description: 从RNN、ResNet以及ODE引入Neural ODE(神经微分方程)架构，推导其前向过程和后向过程计算方法。
 categories:
-- machine learning
+- deep learning
 - math
-- neural ode
 ---
 # 引入
 

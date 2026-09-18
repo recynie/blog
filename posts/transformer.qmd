@@ -4,8 +4,7 @@ date: '2025-04-05'
 date-modified: '2025-04-05'
 description: 从(RNN-based) seq2seq模型开始，经过attention和self-attention，达到transformer的基础架构
 categories:
-- machine learning
-- transformer
+- deep learning
 ---
 ## 概述
 

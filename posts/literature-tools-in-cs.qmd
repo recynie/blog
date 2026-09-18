@@ -5,7 +5,6 @@ date-modified: '2025-10-21'
 description: CS领域的文献相关工具的推荐，涵盖文献检索、热点追踪、引文关联、文献管理、文献阅读等方面。
 categories:
 - softwares
-- literature
 - websites
 ---
 论文追新：

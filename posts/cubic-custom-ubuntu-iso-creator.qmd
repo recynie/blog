@@ -5,7 +5,6 @@ date-modified: '2026-09-12'
 description: Cubic 是一个定制 Ubuntu 和部分 Debian 系发行版 Live ISO 的图形化工具，可预装软件、添加文件和调整系统配置，适合制作开发、教学与维护环境。
 categories:
 - softwares
-- ubuntu
 - aigc
 ---
 

@@ -5,8 +5,6 @@ date-modified: '2025-09-06'
 description: 在Ubuntu24.04.2LTS上配置可用VPN的记录。尝试多种代理软件，并对其进行简单的横向比较。
 categories:
 - softwares
-- ubuntu
-- vpn
 ---
 在Ubuntu24.04.2LTS上安装vpn软件（代理软件）的记录。
 

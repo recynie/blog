@@ -6,8 +6,6 @@ description: 记录一次把《绝区零》自动化迁移到 Linux + Redroid �
   Spark ARM64 路线移除了转译层后又卡在 Android 图形栈，自动化改造最终暂停在游戏运行这一前置条件上。
 categories:
 - softwares
-- redroid
-- linux
 - container
 - aigc
 ---

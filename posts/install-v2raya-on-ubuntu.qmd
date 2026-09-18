@@ -5,7 +5,6 @@ date-modified: '2026-02-18'
 description: 在Debian/Ubuntu上安装v2rayA的记录。
 categories:
 - softwares
-- vpn
 ---
 # 安装v2rayA
 

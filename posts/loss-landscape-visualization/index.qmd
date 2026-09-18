@@ -2,7 +2,10 @@
 title: "可视化损失地形：从训练轨迹到局部平面融合"
 date: 2026-09-11
 date-modified: '2026-09-11'
-categories: [machine learning, visualization, aigc]
+categories: 
+- deep learning
+- visualization
+- aigc
 description: "解释如何以 PCA 表示训练轨迹、用速度与加速度构造局部平面，再融合为二维损失地形，以及这种可视化能帮助我们理解什么。"
 engine: marimo
 from: markdown

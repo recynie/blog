@@ -5,7 +5,6 @@ date-modified: 2025-02-29
 description: 《概率导论》笔记
 categories:
 - math
-- probibility
 ---
 # 概率论
 

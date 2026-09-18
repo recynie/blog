@@ -5,7 +5,6 @@ date-modified: '2025-02-28'
 description: 组合数学课程笔记
 categories:
 - math
-- combinatorics
 ---
 # 排列组合
 

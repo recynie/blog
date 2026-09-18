@@ -4,8 +4,7 @@ date: '2024-11-18'
 date-modified: '2024-12-01'
 description: MathJax常用公式手册
 categories:
-- math
-- latex
+- typesetting
 ---
 # MathJax数学符号
 

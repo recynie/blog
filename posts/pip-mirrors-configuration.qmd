@@ -4,7 +4,7 @@ date: '2025-11-14'
 date-modified: '2025-11-14'
 description: pip非持久化换源，持久化换源（修改配置文件和命令两种方式）。以及使用阿里源安装pytorch。
 categories:
-- machine learning
+- deep learning
 - softwares
 ---
 > 最近尝试从cuda docker image配置项目环境，然后上传到服务端训练。这要求从python安装开始配置深度学习环境。由于需要用脚本配置，并软件镜像源加速，我认为是难得的“从头配置”经验。

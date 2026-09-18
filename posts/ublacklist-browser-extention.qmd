@@ -5,7 +5,6 @@ date-modified: '2025-08-24'
 description: uBlacklist用于屏蔽特定搜索结果的浏览器插件，可用于在搜索引擎中屏蔽特定域名或标题的搜索结果。常用于屏蔽CSDN等你不想在搜索结果中看到的网站。
 categories:
 - softwares
-- browser extension
 ---
 # uBlacklist简介
 

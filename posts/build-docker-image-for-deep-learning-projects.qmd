@@ -4,7 +4,6 @@ date: '2026-04-27'
 date-modified: '2026-04-27'
 description: 深度学习项目的镜像构建方法。包括PyTorch基础镜像、CUDA基础镜像。
 categories:
-- softwares
 - container
 - deep learning
 - short article

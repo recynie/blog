@@ -4,10 +4,8 @@ date: '2025-04-20'
 date-modified: '2025-06-24'
 description: 通过简明的类比，逐一介绍RL中的actor-critic机制, PPO, clip operation, reference model, GRPO
 categories:
-- machine learning
+- deep learning
 - reinforcement learning
-- ppo
-- grpo
 ---
 # Deepseek-R1解析：无需任何先验强化学习知识理解PPO和GRPO
 >
