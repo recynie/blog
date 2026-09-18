@@ -2,7 +2,11 @@
 title: "Gallery"
 toc: false
 page-layout: full
-lightbox: true
+lightbox:
+  match: auto
+  effect: fade
+  desc-position: bottom
+  loop: true
 format:
   html:
     css: styles/gallery.css
