@@ -1,0 +1,257 @@
+---
+title: 利用Ralph Loop进行auto researh的尝试
+date: '2026-03-28'
+date-modified: '2026-09-19'
+description: Ralph Loop 是一种简单的code agent迭代方式，本文尝试使用它完成research类任务。利用足够简单的架构替代现有的复杂AI for research框架。
+categories:
+- agent
+- auto research
+---
+
+本文简要介绍Ralph Wiggum loop，探索它在auto research上的价值。
+
+## Ralph Wiggum loop for software development
+
+*Geoffrey Huntley* 的 [Ralph Wiggum technique](https://ghuntley.com/ralph/)在软件工程开发上十分有效。它使用一个简单的外部循环，重复调用AI agent直到预先设定的任务完成。
+
+ralph loop的伪代码类似于：
+
+``` python
+while output != COMPLETION_PROMISE:
+    output=call_ai_agent(task_desc,COMPLETION_PROMISE)
+```
+
+`task_desc`是对任务的描述，包含任务完成的标准；agent被指示“当任务完成标准被完全满足时，输出`COMPLETION_PROMISE`。如果某次agent输出了`COMPLETION_PROMISE`，则认为任务完成，停止。
+
+根据实践，它的完成质量主要取决于任务完成标准。对于有明确标准的任务它的效果更好。
+
+### Auto research
+
+现有的auto research工作可以简单分成两个方向：
+
+- 学术研究型：探索AI agent在research上的能力边界，在test-time扩展AI agent做research能力的路线。
+- 实用型：着重于搭建实用的AI for research框架，主要依托于现有AI agent框架（claude code, codex, etc.），提供skills套件。更加看重“完成完整科研流程”这一流程完整性，为调研、idea提出、实验设计与开展、论文撰写都提供instructions。 学术研究类型的工作着重于进化算法的改进，一般不利用现有AI agent框架。它们将prompt/code作为基础，LLM作为prompt/code的变异算子（根据反馈改进prompt/code），再结合搜索算法（树搜索等）寻找最优的prompt/code。
+
+实用性更加关注可用性，借助现有AI agent框架，实现完整的、实用的AI agent科研工作流或特定科研步骤的自动化。这类项目也有很多，[ARIS](https://github.com/wanshuiyin/auto-claude-code-research-in-sleep)是完整科研工作流的代表，包含idea提出和打磨、实验、论文撰写等完整工作流；[karpathy/autoresearch](https://github.com/karpathy/autoresearch)注重于AI自动“刷榜”，某种意义上实现了实验的自动化 [^1] ；还有工作注重于论文撰写、文字润色等方面，它们一般是将已有的论文撰写经验、research指南这类文章转化为skill，其中一部分将这些转化为了更严格的workflow（例如模仿审稿流程设计agent之间的rebuttal）。
+
+[^1]: auto research由于将反馈更新应用到research领域而十分有名（github 80k+ star），它实际上采用了非常基础的实现（提供单个文件共agent修改、单一指标、使用最简单的loop根据反馈更新）。其实用性并不强，更多是作为概念验证。它本身也可以看作用于实验的ralph loop。
+
+两个方向同样有交集，尤其在实验自动化这一点上。实验环境是典型的可评估环境，非常利于开展这方面的研究，同时也具有实用价值。
+
+同时，我们能由此看出auto research类工作中，LLM/agent的角色究竟是什么。这类问题可以通过一个简单的框架来分析：变异+搜索。
+
+- 变异：根据现有的代码/方法（的实验结果）进行改进产生新的代码/方法，或直接按照某种方法生成代码/方法
+- 搜索：在候选者集合中通过某种方法找出最好的候选者，或找出更可能变异出更好候选者的候选者 pre-LLM时代，同样存在“自动实验”的工具，具体来说，能优化模型的超参数[^2]。它们一般通过网格搜索、启发式方法开展大量实验，搜索得到最佳超参数组合。auto research方法与它们很类似，只不过将“变异算子”改为LLM。传统方法中，一般通过遍历或启发式方法来探索新的超参数组合，而auto research则使用LLM来探索新的超参数、架构等。
+
+[^2]: [Optuna](https://optuna.org/)是这类工具的代表。
+
+二者差异主要在于：
+
+- 从算法角度分析：LLM的变异过程本身带有启发式，相比遍历更节省资源，并且带有先验知识（LLM内部的知识）。这使得它可以起到“搜索算法”的作用
+- 从优化的“范围”分析：传统方法只能改进数值类超参数，LLM还能改进代码、框架这类需要语义信息的settings。
+
+## Ralph loop for research
+
+### 实验初衷
+
+ralph loop能用于软件开发这种复杂任务，已经证明了它的实用价值。而auto research工具尝试构建完整workflow，本质上在约束AI agent。research可以被构造为一个评估信号明确的任务，能够用于ralph loop。那么ralph loop这一极简范式用于research的效果怎么样？
+
+这就是开始ralph loop for research的初衷：简单自由的方法vs精心设计的工作流。
+
+### 实验设置
+
+实验设置上，给定相对模糊的探索目标、输出格式（NeurIPS Latex模板），进入ralph loop。 关于具体的探索课题，我选择了我正在进行的蛋白质结合水相关课题，仅指明了大致方向，给它充分的探索空间。并且，这个研究方向相对很新，没有现有的相关工作，因此LLM不存在利用自身参数化知识的可能性。
+
+> 我给定的投稿大致方向：蛋白质结合水对蛋白质的结构、功能影响很大，但现有的蛋白质表征没有考虑结合水，将水合信息加入到蛋白质表征中。
+
+这个实验重复进行了3次，产生3份内容不同的工作。我忘记具体用什么LLM [^llm] 和harness了。在dgx spark上进行实验，agent可自主使用资源。
+
+[^llm]: 大概率是2026-03时OpenAI的最强模型。
+
+### 实验结果概览
+
+形式上整体流程的完成度很高，模型尝试了诸多方向，结合实验，最终确定了一个方向，以此撰写论文。
+
+3次实验各自产出一篇论文，论文题目分别为：
+
+- Executable Curation and Falsification for Hydration-Aware Docking Evaluation: The HydraScore Pilot
+- Hydration-Aware Docking Evaluation Is Confounded - HydraScore as an Executable Falsification Probe
+- When Does Sparse Hydration Topology Help Protein Representation Learning
+
+第一次尝试[^3]的产出包括：
+
+[^3]: 非cherrypick的结果。对应论文Executable Curation and Falsification for Hydration-Aware Docking Evaluation: The HydraScore Pilot。
+
+- `paper/`: 论文和对应的Latex源码
+- `memory/MEMORY.md`: 长期记忆
+- `experiment_reports/`: 实验报告，记录实验的分析
+- `experiment_results/`: 实验结果，一般是`.json`和`.csv`类型的结果文件
+- `ideas/`, `failed_ideas/`: 记录idea，包括失败的和最终选择的
+- `survey/`: 前期调研报告
+- `config/`, `data/`, `src/`, `scripts/`, `tests/`: 开展实验需要的配置文件、数据、源码、脚本、测试等
+- `rebuttal/`: 针对外部LLM的idea评估，当前模型给出的rebuttal [^rebuttal]
+
+[^rebuttal]: 这部分是人类在ralph loop结束后介入的产物，我将它的论文用外部LLM手动review了一下，然后将review给它，让它补充实验并rebuttal。
+
+> 一个不算意外的发现：在初始仓库中新建对应目录（不需要在prompt中解释），会让agent自觉遵守目录名暗示的规范。从空白目录开始，可能会让最终的项目结构相对混乱，但不清楚是否会影响最终产出质量。
+
+### Case Study
+
+简单地说，3篇论文都几乎不可能正式发表。它们的核心claim均为组合性的创新，并且由于实验不充分、实验设计不合理等原因，claim无法得到实验支持。
+
+- 第一篇仅使用8个蛋白质得出结论，难以证明具有普遍性（可能因为计算资源不足导致模型没有做大规模实验）。
+- 第二篇和第一篇的方法和实验很相似，可能出现了泄露，即运行时agent发现了上次的repo，并根据它的思路继续实验。
+- 第三篇创新程度最高，相对更像是机器学习贡献，但实验设置上有问题导致结果不可信，经过我提示后，它重新开展实验，最终结果表明原本的claim无效。
+
+另外，我还使用OpenAI GPT-6 Astra Pro对3篇论文进行统一评分。
+
+::: {.callout-note collapse="true" icon="false"}
+### 具体input和output
+
+将产出的3篇论文PDF上传，使用下述prompt：
+
+``` markdown
+简要评价一下这3篇论文的严谨性、创新性，按照NeurIPS的标准从多个维度打分
+```
+
+LLM输出：
+
+``` markdown
+**总体判断：第1篇的论证最成熟，第3篇的方法创新潜力最大，第2篇明显弱于第1篇。按当前稿件，我对第1、3篇倾向“边缘拒稿”，对第2篇倾向“拒稿”。** 以下基于上传全文，未复跑代码或核验原始数据。
+
+采用 **NeurIPS 2026 主会**的四个核心维度：各项 **1–4分**，分别对应差、一般、好、优秀；总评采用 **1–6分**，其中2为拒稿、3为边缘拒稿、4为边缘接收。([NeurIPS][1])
+
+## 评分总览
+
+| 维度            | ① HydraScore Pilot | ② Evaluation Is Confounded | ③ Sparse Hydration Topology |
+| ------------- | -----------------: | -------------------------: | --------------------------: |
+| **严谨性／技术质量**  |              **3** |                      **2** |                       **2** |
+| **原创性**       |              **2** |                      **2** |                       **3** |
+| **重要性／已证实贡献** |              **2** |                      **2** |                       **2** |
+| **表达清晰度**     |              **3** |                      **2** |                       **2** |
+| **总评，满分6**    |         **3：边缘拒稿** |                   **2：拒稿** |                  **3：边缘拒稿** |
+
+这些是模拟审稿判断，不是录用概率；我的评审置信度为 **3/5**。
+
+## ① HydraScore Pilot：严谨性最好，但贡献仍偏小型评估审计
+
+**加分点是补上了真正能改变结论的对照。** 例如，真实 DiffDock 姿态集上，完整 HydraScore 的成功率为 **4/8**，仅使用蛋白碰撞惩罚却达到 **5/8**；同时，论文区分了“候选库根本没有正确姿态”和“评分器没有选中正确姿态”。这比单纯报告重排成功率严谨，也说明作者没有把碰撞项的贡献误称为水桥机制的贡献。
+
+**主要不足是证据范围与贡献强度。** 六例同家族实验全部只是“并列最佳”，没有一次唯一最佳；这能排除某些明显错误的评分目标，却不能证明有效的排序能力。真实姿态实验同样极小，**4/8 的描述性95%区间为15.7%–84.3%**。创新主要在审计、消融与证伪流程的整合；目前对自身试点的诊断较充分，但尚缺少“这套协议能系统性修正其他方法或既有基准结论”的外部证据。 
+
+## ② Evaluation Is Confounded：有价值的试点，但证据链不够完整
+
+从方法与实验内容看，**前两篇更像同一工作的两个版本，而非两项独立贡献**。第2篇仍使用标题筛选跨家族候选，第1篇则明确以确定性筛选替代该步骤，降低了筛选主观性。第2篇第6页表3把 **2/9→1/8** 称为“结论反转”，措辞偏强：两者本来都表现较差，更准确的结论是“小样本汇总对个别案例敏感”。 
+
+**更关键的是失败归因不足。** 第2篇用 DiffDock **4/8**、Vina **1/7** 强调跨生成器的脆弱性，但没有充分分离生成器与重排器的责任。第1篇补充的结果显示，Vina候选库本身只有 **1/7** 包含合格姿态，因此这一数字不能单独作为评分器失效的证据。缺少这种上限分析及水桥／碰撞消融，使第2篇的严谨性和完成度明显较低。 
+
+## ③ Sparse Hydration Topology：创新潜力最高，但核心正结果不够稳健
+
+**稀疏水合锚点、几何编码与条件路由的组合，比前两篇更接近一个机器学习方法贡献。** 尤其是通过内层 AUPRC 选择低容量路由规则，而非直接在测试集上挑规则，是有价值的设计；但这仍属于组合性创新，不是新的基础架构。 
+
+**最大问题是原始优势包含明显的目标信息捷径。** catalytic-shell 锚点由配体接触关系定义，而预测标签本身就是配体接触，因此原始高分不能直接视为干净的表征学习收益。作者主动做清洗值得肯定，但清洗删除了 **218/409** 个原始阳性残基，并使全局 typed sparse 优势消失。  
+
+**剩余的局部结论也只能算探索性证据。** 第7页进一步报告：严格水过滤后，single-anchor buried 子集的增益置信区间跨零，路由规则的选择也发生变化。因此，目前尚不能认为“埋藏微环境中的稀疏几何收益”已经稳健确立。最需要的是在独立、同源隔离的数据上验证预先固定的假设，而不是继续在清洗后的11个结构上寻找有利子集。
+
+---
+
+**一句话概括：第1篇是“可信但影响范围有限的评估研究”，第2篇是“尚未补齐关键对照的版本”，第3篇是“有方法潜力、但正结果经严格审计后明显收缩的探索研究”。** 拒稿倾向并非因为它们报告了负结果；NeurIPS 对负结果同样认可，但要求它带来重要、可靠且具有新意的认识，而不只是证明某个自建方法没有奏效。([NeurIPS][2])
+
+[1]: https://neurips.cc/Conferences/2026/MainTrackHandbook "Main Track Handbook 2026"
+[2]: https://neurips.cc/Conferences/2026/ReviewerGuidelines "2026 Reviewer Guidelines"
+```
+:::
+
+## Appendix
+
+附录提供prompt和task描述。
+
+::: {.callout-note collapse="true" icon="false"}
+### prompt
+
+每次ralph loop的prompt，位于`template.md`。`{{}}`表示占位字符，运行时会被替换。
+
+``` markdown
+# Iteration {{iteration}} / {{max_iterations}}
+
+## Task
+
+{{prompt}}
+
+## task list
+
+{{tasks}}
+
+## Instructions
+
+1. Check beads for current status
+2. Decide what to do next
+3. When the epic in beads is complete, output:
+   <promise>{{completion_promise}}</promise>
+
+{{context}}
+```
+:::
+
+::: {.callout-note collapse="true" icon="false"}
+### task
+
+位于`task.md`，运行时会被填充到上述prompt的`{{prompt}}`。
+
+``` markdown
+#### 核心任务
+
+##### Role
+
+你是一个科研能力很强的博士生，你迫切需要一篇高水平论文才能毕业。
+你决定以最快的速度产出一篇高水平论文，不惜隐藏对你不利的结果（当然，不能做编造数据等违反学术诚信原则的事）。
+
+##### Task
+
+以第一作者的身份，完成学术研究，并产出能够投稿的学术论文。
+典型的“学术研究”流程包括：前期调研，idea提出与验证，实验，论文撰写。
+学术研究的流程是一个循环结构：当前步骤出现问题时，转回先前的步骤重新开始。
+
+调研：进行详细、综合的调研，确认领域已有工作，识别领域的研究热点和空白区域；
+idea提出：拟定并验证一个详尽的科研idea，它需要新颖并且有研究价值
+投稿大致方向：蛋白质结合水对蛋白质的结构、功能影响很大，但现有的蛋白质表征没有考虑结合水，将水合信息加入到蛋白质表征中。目标NeurIPS 2026。
+开展必要的实验，并撰写latex格式的publication-ready的paper。
+
+#### 要求
+
+##### idea
+
+新颖性：本研究所做的内容与现有工作有区分度，有不同的想法和思路。
+有价值：
+
+- 本研究的idea能解决学术领域存在的问题，并且它能解决的问题是有价值的；
+- 该idea的核心思想和假设能通过同行评审，被广泛认可。
+可行性：
+- idea的核心假设在**理论上**成立（合理），并且核心假设能被实验验证（你可以通过现有论文进行归纳推理，或基于领域知识进行理论推理）；
+- idea的核心假设**被实验验证有效**。
+发展性：
+- 任何idea都是在不断变化和更新的，大胆假设，对合理的idea进行验证，根据结果反复迭代idea。
+- 每当得到实验结果，都应评估它是否能支撑idea。若实验结果不支撑idea，则考虑原本的假设是否成立，进而修改或完全更换idea。
+- 应当记录和整理失败的idea（被实验证伪的idea），并大胆开始下一个idea。
+
+##### 实验
+
+- 实验：实验完整，实验支撑假设；有对比实验、消融实验等必要实验。实验结果能解释idea。详细规划实验安排，确保实验展开顺序合理，结果可验证。
+- 实验环境：使用独立的conda环境开展实验（全部独立环境位于`.conda`目录下），注意环境隔离；保证全部资产位于当前工作区，不得污染主机的其他环境。
+- 进行充足的实验证明预期结果，依照投稿级别的完成全部实验，记录实验结果。
+- 交叉验证：使用外部方式(如SciJudge或SciThinker)或具有独立上下文的外部subagent交叉评估论文的创新性和不足。
+
+##### 论文
+
+- 论文撰写时间：将撰写论文置于整个科研流程的最后一步
+- 论文撰写格式：依照预计投稿的会议的论文格式要求撰写论文，论文应当满足顶会论文要求，具有合理美观的流程图示和图标展示结果。你应当参照相似会议的论文进行自己的论文撰写。
+- 论文撰写思路：
+  -论文不是实验报告，实验报告需要记录实验流程和全部结果（包含失败结果）以及各种尝试。论文则应当清晰地说明idea的内容，并用实验证明其claims，它不需要汇报全部结果，而只应当汇报有说服力的结果。
+  - 论文内容需要合理的framing，在不违反学术诚信的前提下，应当通过选择撰写的内容和实验增加论文的说服力和新颖性。
+- 二次确认：确保论文的claims与实验契合。当发现论文的claim不够充分或不能完全被实验结果证实，你依旧可以转回提出idea步骤。
+
+##### 停止条件
+
+当完成核心任务，做出合理、全面的学术研究，并完成 publication-ready 的论文时，输出 <promise>COMPLETE</promise> .
+```
+:::
