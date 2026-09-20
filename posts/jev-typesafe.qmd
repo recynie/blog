@@ -1,0 +1,72 @@
+---
+title: 'Typesafe Jev 简介'
+date: '2026-09-19'
+date-modified: '2026-09-19'
+description: |
+    Typesafe开发的Jev模型是一个和传统生成式LM差异较大的LM。
+    它的输出是一组概率值，表示对应选项出现的概率。
+    它的输出速度极快(<100ms)、智能程度低，可用于低难度的实时任务。
+categories:
+- language model
+- short article
+---
+
+Typesafe发布的Jev模型比较特殊，它改变了传统LM输入文本、输出文本的范式。
+
+### 输入输出
+
+Jev模型的输入仍然是一段自然语言，而输出则可以理解为一组向量，其值表示模型的confidence（具有类似概率的性质）。
+在输入中，除了常规的文本输入，你还需要定义一组选项，指定模型输出什么，Jev可以输出3种类型的值：
+
+- choice: 多选，给定问题和多个选项，Jev输出每个选项的confidence
+- score: 评分，给定评分指标和分数描述，Jev输出每个分数的confidence，进而可以得出期望分数
+- noul: 布尔值，给定问题，Jev输出“是/否”对应的confidence
+
+一次api请求可以包含多个问题，每个问题给定的选项最多为255个。
+模型本身单纯输出向量，api会把结果包装成json格式作为最终输出。
+
+从输入输出上看，这个模型的能力可以形象地描述成做选择和判断，无法生成文本。
+
+> 这个输出让人联想到BERT类模型，它的输出是输入文本中被mask的部分。如果BERT的输入中包含问题和选项，而将选择处mask，那么它也能实现类似的输出。
+
+### 特点
+
+优点：
+
+- 快速：一般输出速度为<100ms
+- 成本低：目前价位输入 $0.042/MTok，输出免费，后续价位可能调整（据说很可能下调价位）
+
+缺点：
+- 能力弱：其能力类似于开源小模型，有项目认为它的能力近似于Qwen3.5-2B（q8 quantized，thinking budget 2048 tokens）的能力 [^equal-model] 。
+
+[^equal-model]: 在包含100个问题的benchmark上测试，准确率为：Jev 77%, Qwen3.5-4B(512) 78.3%, Qwen3.5-2B(2048) 82.0%，括号内的数字表示thinking budget tokens。见[softpudding/jev-frontier-100](https://github.com/softpudding/jev-frontier-100)
+
+### 可能的实现
+
+Typesafe对Jev的描述中提到一些关键点：
+
+- Jev接受的问题的选项（槽位）最多255个
+- Jev能够并行输出全部选项，而不是顺序输出
+- Jev的输出confidence经过校准，能够表示模型对输出的置信度（类似于神经网络输出层softmax后得到的概率）
+
+BERT架构能并行输出，但不应该包含槽位上限，它输出的logits归一化后可以作为confidence，但是应该包含**词表中全部token**对应的confidence，而不是像Jev那样为**每一个选项**分配confidence。因此Jev和BERT有架构上的差异。
+
+目前我倾向于认为Jev更换了语言模型的输出部分，把它换成一个输出255维向量的输出头。现有的开源工作也采用了类似的架构[^jev-like-projects]。
+
+[^jev-like-projects]: 例如 [kev](https://github.com/jaredpalmer/kev) 在 Qwen 基座上增加 LoRA 和读出头，通过一次前向传播并行回答多个问题；其 pointer head 对每个问题的候选项评分，再用 softmax 得到分布。[NanoJev](https://github.com/TianyuCodings/NanoJev) 则在 Qwen3-0.6B 上加入决策头，支持动态候选项及 choice、noul、score 输出。这些是受 Jev 启发的独立实现，可以支持“语言模型骨干加决策头”的推测，但不能证明 Jev 使用固定的 255 维输出头；255 个选项的接口上限也不足以确定其内部架构。
+
+### 用途
+
+Jev兼顾了自然语言理解和结构化输出，并且拥有较低的成本和极高的速度。
+它非常适合完成具有明确状态、低难度、高实时性的任务。现有的工作包括browser use[^browser-use]、agent context compaction[^context-compaction]。也有一些娱乐性的demo，比如玩决策类型的游戏（DOOM[^doom]）等。
+
+[^browser-use]: 把Jev作为agent的一个工具来完成基础浏览器操作，浏览器操作状态有限、逻辑简单、延迟感知明显，显然十分适合Jev。见 [browser-use/jev-ultrafast](https://github.com/browser-use/jev-ultrafast)。
+[^context-compaction]: 低延迟的context compaction，让Jev决定保留哪些context。但context compaction任务要求长上下文理解，所以目前Jev的智能程度可能不适合。任务满足有限状态，但不要求低延迟。见 [tamaratran/fast-jev-compaction](https://github.com/tamaratran/fast-jev-compaction)。
+[^doom]: 将角色动作形式化为有限状态，游戏场景转换为文本，让Jev实时决定当前帧要做什么。实时性要求高，但状态实际上并不有限（人为规约成有限状态了）。见 [junyeong-nero/jev-doom](https://github.com/junyeong-nero/jev-doom)。
+
+### 展望
+
+Jev作为一个模型架构并不新颖，早有与它类似的工作[^similiar-work]。作为一个产品，它所宣称的zero hallucination（其实仅仅是保证生成的json可解析[^hallucination]）其实在当下已经意义不大，通过外部约束能达到类似的效果。
+
+[^similiar-work]: 较早的类似工作包括 [GLiClass](https://github.com/Knowledgator/GLiClass)：将文本和用户给定的候选标签作为输入，在一次前向传播中完成零样本分类，输出各标签的分数。它已体现“自然语言输入、动态候选标签、直接分类评分”的思路。这里比较的是任务形式和计算方式，不意味着它与 Jev 的内部架构、训练方法或置信度校准机制相同。
+[^hallucination]: Typesafe说的zero hallucination指的是“Jev输出的json必定没有结构上的问题，这是模型架构决定的”，但这实际上并不能说明它没有通常意义上的幻觉，或者说其实“幻觉”对这类模型可能不太适用、没有形成统一的概念。参见 TypeSafe 的[发布说明](https://typesafe.ai/blog/introducing-system-one-models-and-jev)。
