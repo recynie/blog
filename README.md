@@ -8,6 +8,8 @@ Yukiguni 是一个使用 [Quarto](https://quarto.org/) 构建的个人博客，�
 
 Quarto 将 `.qmd` 源文件构建为 HTML，输出到 `_site/`。网站采用内置 Zephyr 主题，通过少量 CSS 调整配色、文章列表和图库布局。导航、目录、搜索和图片灯箱使用 Quarto 原生功能。
 
+首页使用 `includes/home.html`、`styles/home.css` 和 `scripts/home.js` 实现固定雪原首屏：Canvas 每次进入页面时随机生成 Perlin 地形，在约 2.6 秒内逐渐升起，填色和细等高线从背景色渐显，随后由鼠标相对首屏中心的位置控制视角平移方向，中心半轴距离的 4% 内停止，4%–25% 区间通过 smoothstep 平滑加速，外围保持每秒 0.025 噪声单位的原速，并保留轻微视差；中心附近、鼠标离开或无精细指针的触屏设备上停止平移，转向平滑过渡；地形上下使用相同的海拔分布，低地保留 Posts banner 原色，按海拔平方乘 0.9 的比例向白色混合，保持柔和色差。等高线使用对应海拔填色的 RGB 各减 22，中央显示 Yukiguni。地形铺满视口并延伸至导航栏背后，导航栏收起时不留空白色带。向下滚动时文章区覆盖首屏，Posts 标题渐显。首屏与 banner 共用 `styles/colors.css` 中的 `--site-banner-background`（六位十六进制颜色）。导航 Posts 通过 `index.qmd#title-block-header` 直接进入文章区，站点标识返回首屏。动画在页面隐藏或首屏被覆盖时暂停，系统启用减少动态效果时直接展示静态地形并关闭视差；无 JavaScript 时直接显示文章列表。
+
 数学公式由 MathJax 渲染，额外启用 `mathtools` 扩展。普通文章默认关闭代码执行，构建时无需运行文章中的命令或代码。
 
 ## 本地使用

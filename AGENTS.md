@@ -7,7 +7,7 @@
 ```text
 _quarto.yml                         # 全站配置、渲染范围与默认执行策略
 robots.txt                          # 搜索引擎抓取规则与站点地图地址，构建时复制到站点根目录
-index.qmd                           # 首页文章列表、分类、排序与筛选
+index.qmd                           # 雪原首屏与首页文章列表、分类、排序与筛选
 gallery.qmd                        # 摄影图库与灯箱入口
 posts/
   _metadata.yml                     # 文章共享元数据与 Markdown 解析设置
@@ -18,6 +18,9 @@ posts/
 drafts/                            # 本地草稿；支持单文件和独立目录，Git 忽略，排除全站渲染
 images/                             # 站点标识（SVG / PNG favicon）、共享图片与摄影作品
 styles/                             # 全站配色、首页列表及图库样式
+includes/home.html                  # 首页 Canvas 首屏与文章入口
+scripts/home.js                     # 随机 Perlin 地形入场、鼠标引导平移的等高线、视差与滚动渐显
+styles/home.css                     # 固定首屏与覆盖式文章列表布局
 includes/mathjax.html               # MathJax mathtools 扩展配置
 _extensions/marimo-team/marimo/      # 随仓库保存的 quarto-marimo 扩展
 scripts/build-cloudflare.sh         # Pages 工具安装、构建与文件大小检查

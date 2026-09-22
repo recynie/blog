@@ -1,6 +1,10 @@
 ---
 title: "Posts"
-css: styles/listing.css
+css:
+  - styles/listing.css
+  - styles/home.css
+body-classes: home-page
+include-before-body: includes/home.html
 listing:
   contents: posts
   sort: "date desc"

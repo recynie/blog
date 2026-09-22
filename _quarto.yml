@@ -2,6 +2,7 @@ project:
   type: website
   resources:
     - robots.txt
+    - scripts/home.js
   render:
     - index.qmd
     - gallery.qmd
@@ -20,7 +21,7 @@ website:
     background: light
     foreground: "#172b3d"
     left:
-      - href: index.qmd
+      - href: index.qmd#title-block-header
         text: Posts
       - href: gallery.qmd
         text: Gallery
