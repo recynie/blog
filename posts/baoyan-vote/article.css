@@ -1,0 +1,29 @@
+/* Vega uses container width; allow the island and its flex children to shrink. */
+#quarto-document-content marimo-island,
+#quarto-document-content marimo-ui-element,
+#quarto-document-content marimo-vega {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* A dedicated caption block avoids inheriting marimo's body-paragraph styling. */
+#quarto-document-content .baoyan-chart-caption {
+  margin: 0.25rem 0 1rem;
+  color: #6b6b6b;
+  font-size: 0.8rem;
+  line-height: 1.65;
+}
+
+/* Keep wide comparison tables scrollable within the article on narrow screens. */
+@media (max-width: 767px) {
+  #quarto-document-content table {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  #quarto-document-content code {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}

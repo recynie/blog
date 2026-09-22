@@ -1,0 +1,40 @@
+```python {.marimo}
+#| error: false
+_histogram = aggregate["vote_count_histogram"]
+_bins = _histogram["bins"]
+_bin_order = [row["label"] for row in _bins]
+_counts = [{"区间": row["label"], "投稿数": row["count"]} for row in _bins]
+_shares = [{"区间": row["label"], "投稿数": row["count"], "类别": label, "比例": value, "顺序": i}
+           for i, row in enumerate(_bins) for label, value in row["mean_shares"].items()]
+_vote_histogram = alt.Chart(alt.Data(values=_counts)).mark_bar(color="#4b7abf").encode(
+    x=alt.X("区间:N", sort=_bin_order, title=None, axis=alt.Axis(labels=False, ticks=False)),
+    y=alt.Y("投稿数:Q", title="投稿数", scale=alt.Scale(zero=True), axis=alt.Axis(tickMinStep=1)),
+    tooltip=[alt.Tooltip("区间:N", title="票数区间"), alt.Tooltip("投稿数:Q", format=",")],
+).properties(width=700, height=180)
+_vote_shares = alt.Chart(alt.Data(values=_shares)).mark_line(point=True).encode(
+    x=alt.X("区间:N", sort=_bin_order, title="每条投稿收到的票数（>200 合并）",
+            axis=alt.Axis(labelAngle=-55, labelOverlap=False)),
+    y=alt.Y("比例:Q", title="平均评价比例", scale=alt.Scale(domain=[0, 1]), axis=alt.Axis(format=".0%")),
+    color=alt.Color("类别:N", sort=aggregate["classes"],
+                    scale=alt.Scale(domain=aggregate["classes"], range=VOTE_COLORS),
+                    legend=alt.Legend(title=None, orient="top")),
+    strokeDash=alt.StrokeDash("类别:N", sort=aggregate["classes"], legend=None),
+    order=alt.Order("顺序:Q"),
+    tooltip=[alt.Tooltip("区间:N", title="票数区间"), alt.Tooltip("投稿数:Q", format=","),
+             alt.Tooltip("类别:N"), alt.Tooltip("比例:Q", format=".1%")],
+).properties(width=700, height=210)
+_vote_panels = (alt.vconcat(_vote_histogram, _vote_shares, spacing=16)
+                .resolve_scale(x="shared")
+                .properties(usermeta={"embedOptions": {"renderer": "svg", "actions": False}})
+                .configure(background="#ffffff", font="sans-serif")
+                .configure_view(stroke=None)
+                .configure_axis(labelFontSize=11, titleFontSize=12, gridColor="#e5ebf1"))
+figure_output(
+    mo.hstack([mo.ui.altair_chart(_vote_panels, chart_selection=False, legend_selection=False)],
+              justify="start").style({"overflow-x": "auto", "max-width": "100%"}),
+    "上图为各票数区间的投稿数，下图为投稿等权的平均评价比例。零票单列；其余按 1–10、11–20……191–200 分组，"
+    ">200 票合并为尾组。横轴为区间类别，尾组不表示等宽票数范围。26 条零票投稿不计算评价比例；"
+    "高票区间样本较少，折线仅展示描述性关联，不作因果解释。",
+    number=4,
+)
+```

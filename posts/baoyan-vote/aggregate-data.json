@@ -1,0 +1,453 @@
+{
+  "description": "Only aggregate statistics; no individual submissions or credentials.",
+  "source_project": "baoyan-vote",
+  "source_commit": "0582666bb91d9b7e19d4e9b31bb936eb80f38ef6",
+  "source_worktree_has_uncommitted_changes": true,
+  "provenance_note": "Commit identifies repository HEAD only; source hashes identify the locally read files, including uncommitted and ignored artifacts.",
+  "exported_at": "2026-09-18T10:56:19.948789+00:00",
+  "raw_records": 1737,
+  "records_with_votes": 1711,
+  "classes": [
+    "不行",
+    "刚好",
+    "OQ"
+  ],
+  "vote_counts": [
+    20801,
+    45633,
+    10603
+  ],
+  "pooled_vote_shares": [
+    0.27001311058322625,
+    0.5923517270921765,
+    0.13763516232459727
+  ],
+  "submission_equal_shares_among_nonzero_vote_records": [
+    0.29176283824217203,
+    0.5808285723396038,
+    0.12740858941822414
+  ],
+  "vote_count_buckets": {
+    "0": 26,
+    "1–4": 102,
+    "5–9": 189,
+    "10–19": 311,
+    "20+": 1109
+  },
+  "current_model_evaluation": {
+    "seed": 20260921,
+    "train_records": 1241,
+    "held_out_records": 138,
+    "eligible_records": 1379,
+    "classes": [
+      "不行",
+      "刚好",
+      "OQ"
+    ],
+    "prediction_counts": {
+      "不行": 1,
+      "刚好": 137,
+      "OQ": 0
+    },
+    "catboost": {
+      "records": 138,
+      "unique_majority_records": 135,
+      "tied_majority_records": 3,
+      "majority_accuracy": 0.7703703703703704,
+      "distribution_mae": 0.11990841391400357,
+      "mean_total_variation": 0.17986262087100535,
+      "distribution_brier": 0.07650148068466477,
+      "cross_entropy": 0.8983976989671675
+    },
+    "majority_class_baseline": {
+      "records": 138,
+      "unique_majority_records": 135,
+      "tied_majority_records": 3,
+      "majority_accuracy": 0.762962962962963,
+      "distribution_mae": 0.276108784797103,
+      "mean_total_variation": 0.41416317719565443,
+      "distribution_brier": 0.36394741254006024,
+      "cross_entropy": 11.443751494533183
+    },
+    "majority_baseline_class": "刚好",
+    "train_distribution_baseline": {
+      "records": 138,
+      "unique_majority_records": 135,
+      "tied_majority_records": 3,
+      "majority_accuracy": 0.762962962962963,
+      "distribution_mae": 0.13426291918789315,
+      "mean_total_variation": 0.20139437878183974,
+      "distribution_brier": 0.09037483474256851,
+      "cross_entropy": 0.9247832297714328
+    },
+    "formulas": {
+      "accuracy": "mean(argmax(pred)==argmax(votes)) over unique actual majorities; ties excluded",
+      "distribution_mae": "sum_i sum_c |p_ic-q_ic| / (N*3)",
+      "mean_total_variation": "sum_i sum_c |p_ic-q_ic| / (2*N)",
+      "distribution_brier": "sum_i sum_c (p_ic-q_ic)^2 / N",
+      "cross_entropy": "-sum_i sum_c q_ic*log(max(p_ic,1e-12)) / N",
+      "rps": "mean_i mean_k=0,1 (sum_c<=k p_ic - sum_c<=k q_ic)^2; vote_equal weights by vote_total"
+    },
+    "interpretation": "Community vote inclination, not admission probability. Retrospective reconstruction on a previously studied snapshot, not a new independent blind test. Fixed parameters; no holdout-based tuning.",
+    "parameters": {
+      "iterations": 350,
+      "depth": 5,
+      "learning_rate": 0.045,
+      "l2_leaf_reg": 6,
+      "loss_function": "MultiClass",
+      "random_seed": 20260921,
+      "thread_count": 4,
+      "verbose": false,
+      "allow_writing_files": false
+    },
+    "distribution_scores": {
+      "catboost": {
+        "submission_equal": {
+          "cross_entropy": 0.8983976989671675,
+          "distribution_mae": 0.11990841391400357,
+          "distribution_brier": 0.07650148068466477,
+          "rps": 0.023171656658154415
+        },
+        "vote_equal": {
+          "cross_entropy": 0.8908258631175909,
+          "distribution_mae": 0.10429254924167804,
+          "distribution_brier": 0.05490738675072832,
+          "rps": 0.017812959962349568
+        }
+      },
+      "majority_class_baseline": {
+        "submission_equal": {
+          "cross_entropy": 11.443751494533183,
+          "distribution_mae": 0.276108784797103,
+          "distribution_brier": 0.36394741254006024,
+          "rps": 0.07976004320036219
+        },
+        "vote_equal": {
+          "cross_entropy": 11.46252825536853,
+          "distribution_mae": 0.2765618205537034,
+          "distribution_brier": 0.3462487215508531,
+          "rps": 0.07616649687828508
+        }
+      },
+      "train_distribution_baseline": {
+        "submission_equal": {
+          "cross_entropy": 0.9247832297714328,
+          "distribution_mae": 0.13426291918789315,
+          "distribution_brier": 0.09037483474256851,
+          "rps": 0.02873614891743193
+        },
+        "vote_equal": {
+          "cross_entropy": 0.9264406147378225,
+          "distribution_mae": 0.12323137128878087,
+          "distribution_brier": 0.07217559226249759,
+          "rps": 0.025175485109222105
+        }
+      }
+    },
+    "confusion_matrix": {
+      "classes": [
+        "不行",
+        "刚好",
+        "OQ"
+      ],
+      "counts": [
+        [
+          1,
+          29,
+          0
+        ],
+        [
+          0,
+          103,
+          0
+        ],
+        [
+          0,
+          2,
+          0
+        ]
+      ],
+      "records": 135,
+      "excluded_ties": 3
+    }
+  },
+  "source_sha256": {
+    "artifacts/model/evaluation.json": "db333c290ecf289660519c30149b9356b520ce8e9adc82d6c0757737a30e3cb1",
+    "baoyan/features.py": "cf8b6bbd115dc408cdf5070770a49900043633c2f6fda6e543791dc40333f2ae",
+    "baoyan/model.py": "03e75feb8d7bb4efbd5404e436d3730c506d2d7b382447382aff9fc78b627673",
+    "baoyan/semantic.py": "ef0417edda70daf93d19dff69661e5d4ad46fef2fcae29c4f559adf040ae576f",
+    "crawl.py": "cd110b1ff6631d3c0e5d92b0630f009821f0b7863779963ed3497d77d813988a",
+    "data/submissions.json": "b0ff0517a1cd75f6f2da207d7f8760eaf47d92cd4080819ca0e65ff25e332ed8",
+    "data/summary.json": "3a1d0bbc477ac04147d08c8d6bb82a9b28fe400b260a0feeb65695f03c4b57b1",
+    "docs/MVP-results.md": "10ff3feb3cd59de2fefb268fa3aa6e3176a7922cbffbbfc27f4c0ff11cfe9bb6",
+    "docs/model-interpretability/README.md": "0ce33f63b6788c6cb99e248785da7190c0a8b003a4217479824ab0147f5941c0",
+    "docs/model-interpretability/results.json": "00250cd1f2a0e238075d7dfe83ed70f1f3bf70e275a8c4ccaf9c1059fdd369a6",
+    "docs/mvp8-quality-review.md": "5e7f25f43f37587837dfe7c037086d8e14abedfcae2fe4128cb46c79b11212b5",
+    "docs/prediction-method.md": "85b7daad1d0361dcf965c37cdb4a0a5954e21de8cfdbfb076fe9e7704ac5f4f4",
+    "experiments/achievement_information/results.md": "2b853dc5d646ee326fbda71c0e5c4178e8a27c8239fb2313fb64b48976220865",
+    "experiments/achievement_slots/results.md": "5efe2c812ac2347b43782d958af0a87d971a615a6162267d36309a4b17aec1e3",
+    "experiments/depth_generalization/results.md": "31bef4859288969239061170a46c22de7d8873cf722f9739c293848a69391a07",
+    "experiments/knn_order/results.md": "af841225ad83c14245bf467252b9edddd6ff8e27bf6a156d4d245ae005deb620",
+    "experiments/knn_weights/results.md": "34a5a9a4fdb7c874e11db2f1a29662aa31d79c3ae3b3606a196745d65260019d",
+    "experiments/min_votes/results.md": "850335ae71585f9b14eff10ba937dcadf5628d0ecd3feeb155cbba1a2d37d803",
+    "experiments/ordinal_labels/results.md": "136d22163db907e1a77831fdf76ecf1b39b15fda70877f2a9e4a429dc5284e57",
+    "experiments/school_flows/results.md": "f98d3fe9438d481db3faa3275ac869c76f79a46f20b5bb225505cdbe4d236639",
+    "experiments/school_flows/runs/run-001/flows.csv": "f97dff22dc931d3d9367d31df6ad5ee2d47f9d4616d67d2da0f7061de04bc3f3",
+    "experiments/school_flows/runs/run-001/heatmap.png": "558aec2db5141396dcd66e52ec9d618fd4d095562f7b3dcf33f925d273045037",
+    "experiments/submission_ordinal/results.md": "e77c20e57f5a0ddc6f1dc5e18ebc5a4b21463f47c3d323ef3a50e454d096b64e",
+    "experiments/tree_depth/results.md": "53fe5d86bc8dbf2c96d6afc742b2db1d7d763ad80a09e0b80183b7664a5cbdfd",
+    "experiments/vote_weights/results.md": "efa559f1951dcb8fcacc2dd4fb9e0bf80452d9a933be753935af9c64187c6303",
+    "artifacts/model/held-out-predictions.json": "fd93b2f7f37916f72dd789f685d93bd3209970f78c5c779cfc782d2514de5640"
+  },
+  "vote_count_histogram": {
+    "bin_width": 10,
+    "interval": "inclusive integer bounds; zero separate; >200 open tail",
+    "share_weight": "submission_equal",
+    "zero_vote_records": 26,
+    "max_votes": 362,
+    "bins": [
+      {
+        "label": "0",
+        "start": 0,
+        "end": 0,
+        "count": 26,
+        "mean_shares": {
+          "不行": null,
+          "刚好": null,
+          "OQ": null
+        }
+      },
+      {
+        "label": "1–10",
+        "start": 1,
+        "end": 10,
+        "count": 329,
+        "mean_shares": {
+          "不行": 0.33346721667390367,
+          "刚好": 0.5336300477637864,
+          "OQ": 0.13290273556231028
+        }
+      },
+      {
+        "label": "11–20",
+        "start": 11,
+        "end": 20,
+        "count": 299,
+        "mean_shares": {
+          "不行": 0.3136006004170787,
+          "刚好": 0.5562448480047901,
+          "OQ": 0.13015455157813086
+        }
+      },
+      {
+        "label": "21–30",
+        "start": 21,
+        "end": 30,
+        "count": 264,
+        "mean_shares": {
+          "不行": 0.2907561890935261,
+          "刚好": 0.6038634286607745,
+          "OQ": 0.10538038224569966
+        }
+      },
+      {
+        "label": "31–40",
+        "start": 31,
+        "end": 40,
+        "count": 150,
+        "mean_shares": {
+          "不行": 0.25134138956272684,
+          "刚好": 0.6197565424972047,
+          "OQ": 0.12890206794006856
+        }
+      },
+      {
+        "label": "41–50",
+        "start": 41,
+        "end": 50,
+        "count": 111,
+        "mean_shares": {
+          "不行": 0.28086912171132894,
+          "刚好": 0.6012581625849832,
+          "OQ": 0.11787271570368808
+        }
+      },
+      {
+        "label": "51–60",
+        "start": 51,
+        "end": 60,
+        "count": 71,
+        "mean_shares": {
+          "不行": 0.2994702908138285,
+          "刚好": 0.5728014123023848,
+          "OQ": 0.12772829688378676
+        }
+      },
+      {
+        "label": "61–70",
+        "start": 61,
+        "end": 70,
+        "count": 77,
+        "mean_shares": {
+          "不行": 0.3037772111135789,
+          "刚好": 0.593615815478238,
+          "OQ": 0.10260697340818287
+        }
+      },
+      {
+        "label": "71–80",
+        "start": 71,
+        "end": 80,
+        "count": 83,
+        "mean_shares": {
+          "不行": 0.24671662047995183,
+          "刚好": 0.631327612460758,
+          "OQ": 0.12195576705929001
+        }
+      },
+      {
+        "label": "81–90",
+        "start": 81,
+        "end": 90,
+        "count": 67,
+        "mean_shares": {
+          "不行": 0.2950797269927689,
+          "刚好": 0.5729131403701754,
+          "OQ": 0.13200713263705574
+        }
+      },
+      {
+        "label": "91–100",
+        "start": 91,
+        "end": 100,
+        "count": 55,
+        "mean_shares": {
+          "不行": 0.23609385285074633,
+          "刚好": 0.6268628513466297,
+          "OQ": 0.13704329580262395
+        }
+      },
+      {
+        "label": "101–110",
+        "start": 101,
+        "end": 110,
+        "count": 49,
+        "mean_shares": {
+          "不行": 0.25715372162851335,
+          "刚好": 0.6139481637309431,
+          "OQ": 0.12889811464054365
+        }
+      },
+      {
+        "label": "111–120",
+        "start": 111,
+        "end": 120,
+        "count": 48,
+        "mean_shares": {
+          "不行": 0.2548948084820096,
+          "刚好": 0.6002444427037067,
+          "OQ": 0.14486074881428387
+        }
+      },
+      {
+        "label": "121–130",
+        "start": 121,
+        "end": 130,
+        "count": 27,
+        "mean_shares": {
+          "不行": 0.20590750968501617,
+          "刚好": 0.5990731081637717,
+          "OQ": 0.19501938215121228
+        }
+      },
+      {
+        "label": "131–140",
+        "start": 131,
+        "end": 140,
+        "count": 27,
+        "mean_shares": {
+          "不行": 0.30271650032715364,
+          "刚好": 0.554927474811827,
+          "OQ": 0.14235602486101925
+        }
+      },
+      {
+        "label": "141–150",
+        "start": 141,
+        "end": 150,
+        "count": 8,
+        "mean_shares": {
+          "不行": 0.26242759232245294,
+          "刚好": 0.6228688944671724,
+          "OQ": 0.11470351321037452
+        }
+      },
+      {
+        "label": "151–160",
+        "start": 151,
+        "end": 160,
+        "count": 15,
+        "mean_shares": {
+          "不行": 0.23383285958200034,
+          "刚好": 0.6344936110179673,
+          "OQ": 0.13167352940003246
+        }
+      },
+      {
+        "label": "161–170",
+        "start": 161,
+        "end": 170,
+        "count": 9,
+        "mean_shares": {
+          "不行": 0.23122870258581146,
+          "刚好": 0.582060194343924,
+          "OQ": 0.18671110307026456
+        }
+      },
+      {
+        "label": "171–180",
+        "start": 171,
+        "end": 180,
+        "count": 4,
+        "mean_shares": {
+          "不行": 0.3214049298841564,
+          "刚好": 0.5999706036059578,
+          "OQ": 0.07862446650988589
+        }
+      },
+      {
+        "label": "181–190",
+        "start": 181,
+        "end": 190,
+        "count": 4,
+        "mean_shares": {
+          "不行": 0.347421523693154,
+          "刚好": 0.5769705956556367,
+          "OQ": 0.07560788065120927
+        }
+      },
+      {
+        "label": "191–200",
+        "start": 191,
+        "end": 200,
+        "count": 5,
+        "mean_shares": {
+          "不行": 0.36214342322730386,
+          "刚好": 0.5185820385599986,
+          "OQ": 0.11927453821269748
+        }
+      },
+      {
+        "label": ">200",
+        "start": 201,
+        "end": null,
+        "count": 9,
+        "mean_shares": {
+          "不行": 0.16256246832425428,
+          "刚好": 0.4511312462332204,
+          "OQ": 0.3863062854425254
+        }
+      }
+    ]
+  }
+}

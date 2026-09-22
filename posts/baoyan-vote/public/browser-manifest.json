@@ -1,0 +1,33 @@
+{
+  "model_version": "mvp-10-quantities-only",
+  "catboost_export_version": "1.2.10",
+  "source_commit": "0582666bb91d9b7e19d4e9b31bb936eb80f38ef6",
+  "source_model_sha256": "94fd99fa6d5edfef71cde161281c4c50eda77b1604e0f3ced23a777d3e2b510c",
+  "source_feature_table_sha256": "6555dff9128f0f16aec40362080b5c54558e100f35c3018823555eae53573db5",
+  "parity": {
+    "eligible_rows": 1379,
+    "max_absolute_probability_error": 2.220446049250313e-16,
+    "synthetic_rows": 380,
+    "synthetic_max_error": 2.220446049250313e-16,
+    "tolerance": 1e-12
+  },
+  "notes": [
+    "No training or semantic API calls; exact frozen model export.",
+    "Unicode hash keys decoded from CatBoost byte literals; float32 input conversion.",
+    "No individual submissions, feature rows, votes, authentication or API keys included.",
+    "Commit alone does not identify locally modified artifacts; hashes bind the snapshot."
+  ],
+  "files_sha256": {
+    "aggregate-data.json": "0ff3fa8ebb23ea5fc454ca44c6adca8e3a5615ba16e4d1bb05ea5c39df957af9",
+    "baoyan_browser/__init__.py": "d931b3a145d58c5a74b66582f274b6d1b8677997394a189486a78fd3a31c0d07",
+    "baoyan_browser/exported_model.py": "a7803cab44c59bbe101395d658e484239c53b2613e1795f9e0ac8e2d87cfd029",
+    "baoyan_browser/feature-spec.json": "bfa9fc217aad70f989ad2446fc90de5e178ac98cec6e0b8669268266a7da8ddd",
+    "baoyan_browser/features.py": "cf8b6bbd115dc408cdf5070770a49900043633c2f6fda6e543791dc40333f2ae",
+    "baoyan_browser/inference.py": "ad8e26bf30090d4924ddf6b7dbc9bb40f9935b8b91864a8442fd4e8274b8a1ad",
+    "baoyan_browser/preferences.py": "b57b9be6d5206a3ccf11785c77682d20660fcd8497b8df3e051f715d2f62033c",
+    "baoyan_browser/schema.py": "1e5871ef53600ea8369acb69dc04216fd0330e80c5c301f5865c84030b932ffc",
+    "baoyan_browser/ui.py": "61569c342a5bb4f778fdfb0faf2e57a00f0f5a4611109779c0b1dcaa25fb39ba",
+    "school-target-flows.csv": "f97dff22dc931d3d9367d31df6ad5ee2d47f9d4616d67d2da0f7061de04bc3f3"
+  },
+  "bundle_sha256": "ebfdc2fd7cb0048c16b4d039b90b12f24b7d977b1a156ec80da4bd73266b2b66"
+}

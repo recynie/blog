@@ -1,0 +1,16 @@
+```python {.marimo}
+#| error: false
+vote_view = mo.ui.dropdown(["每张票等权", "每条有票投稿等权"], value="每张票等权", label="投票图统计口径")
+vote_view
+```
+
+```python {.marimo}
+#| error: false
+_key = "pooled_vote_shares" if vote_view.value == "每张票等权" else "submission_equal_shares_among_nonzero_vote_records"
+_vote_chart = distribution_chart(aggregate["classes"], aggregate[_key], vote_view.value,
+                                percent=True, colors=VOTE_COLORS)
+figure_output(_vote_chart, {
+    "每张票等权": "全部 77,037 张票的类别比例；每张票权重相同，热门投稿贡献更多。",
+    "每条有票投稿等权": "先计算每条有票投稿的类别比例，再对投稿取平均；零票投稿不参与此口径。",
+}[vote_view.value], number=3)
+```

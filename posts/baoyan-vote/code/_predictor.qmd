@@ -1,0 +1,120 @@
+```python {.marimo}
+#| error: false
+mo.md("**WASM / Python 已就绪，可操作图表并提交预测。**" if sys.platform == "emscripten" else "**静态预览：请等待浏览器加载 WASM / Python 后操作。**")
+```
+
+```python {.marimo}
+#| error: false
+basic = mo.ui.dictionary({
+    "school_tier": dropdown(mo, ["unknown", *TIERS], "本科学校层次"),
+    "rank": mo.ui.number(step=1, label="排名"),
+    "total_students": mo.ui.number(step=1, label="专业总人数（与排名同口径）"),
+    "english_type": dropdown(mo, ["unknown", "六级", "四级", "雅思", "托福"], "英语考试"),
+    "english_score": mo.ui.number(step=.5, label="英语分数"),
+})
+mo.vstack([mo.md("#### 基础背景"), basic.vstack()])
+```
+
+```python {.marimo}
+#| error: false
+target = mo.ui.dictionary({
+    "tiers": mo.ui.multiselect(TIERS, value=["中九"], label="目标院校层次（至少一项）"),
+    "degree": dropdown(mo, ["unknown", "硕士", "直博", "随意"], "学位偏好"),
+    "advisor": dropdown(mo, ["unknown", "好导", "羊导", "任意"], "导师偏好"),
+    "accepted_degrees": mo.ui.multiselect({"学硕": "academic", "专硕": "professional", "直博": "phd"}, label="明确接受的学位"),
+    "excluded_degrees": mo.ui.multiselect({"学硕": "academic", "专硕": "professional", "直博": "phd"}, label="明确排除的学位"),
+    "uncertain_degrees": mo.ui.multiselect({"学硕": "academic", "专硕": "professional", "直博": "phd"}, label="偏好尚不确定的学位"),
+})
+mo.vstack([mo.md("#### 申请目标与偏好"), target.vstack()])
+```
+
+```python {.marimo}
+#| include: false
+#| error: false
+def achievement_controls(kind, rows, set_rows):
+    # A top-level UI array makes edits inside dynamic entries reactive.
+    # Keep callbacks bound to its clones, including when adding/deleting rows.
+    forms = mo.ui.array([item_form(mo, kind, row) for row in rows])
+    title = "科研" if kind == "research" else "奖项 / 测评"
+    buttons = [mo.ui.button(label=f"删除{title} {i + 1}",
+               on_click=lambda _, index=i: set_rows([row for j, row in enumerate(forms.value) if j != index]))
+               for i in range(len(forms))]
+    add = mo.ui.button(label=f"＋ 添加{title}条目", on_click=lambda _: set_rows([*forms.value, {}]))
+    cards = [mo.accordion({f"{title} {i + 1}": mo.vstack([form.vstack(), buttons[i]])})
+             for i, form in enumerate(forms)]
+    return forms, [*buttons, add], mo.vstack([*cards, add])
+```
+
+```python {.marimo}
+#| include: false
+#| error: false
+get_research, set_research = mo.state([], allow_self_loops=True)
+get_awards, set_awards = mo.state([], allow_self_loops=True)
+```
+
+```python {.marimo}
+#| error: false
+empty_states = mo.ui.dictionary({
+    "research_state": dropdown(mo, ["unknown", "none"], "无当前科研经历时"),
+    "awards_state": dropdown(mo, ["unknown", "none"], "无当前奖项时"),
+})
+mo.vstack([mo.md("#### 科研与获奖"), empty_states.vstack()])
+```
+
+```python {.marimo}
+#| error: false
+research_entries, research_buttons, _research_cards = achievement_controls("research", get_research(), set_research)
+_research_cards
+```
+
+```python {.marimo}
+#| error: false
+award_entries, award_buttons, _award_cards = achievement_controls("awards", get_awards(), set_awards)
+_award_cards
+```
+
+```python {.marimo}
+#| error: false
+supplements = mo.ui.dictionary({key: mo.ui.dropdown({"明确是": "yes", "明确否": "no"}, label=label) for key, label in SIGNAL_LABELS.items()})
+mo.accordion({"补充信息（选填）": supplements.vstack()})
+```
+
+```python {.marimo}
+#| error: false
+background = structured_background({**basic.value, **empty_states.value}, target.value,
+                                  research_entries.value, award_entries.value, supplements.value)
+background_errors = validate_background(background)
+if background_errors:
+    mo.output.replace(mo.callout("；".join(background_errors), kind="danger"))
+```
+
+```python {.marimo}
+#| error: false
+predict_button = mo.ui.run_button(label="开始预测社区评价", disabled=bool(background_errors))
+predict_button
+```
+
+```python {.marimo}
+#| error: false
+mo.stop(not predict_button.value or bool(background_errors))
+_prediction = predict_community(background)
+mo.vstack([mo.md(f"### 预测评价：{_prediction['prediction']}"),
+           figure_output(distribution_chart(aggregate["classes"], [_prediction["probabilities"][name] for name in aggregate["classes"]],
+                              "社区评价分布（非录取概率）", percent=True, colors=VOTE_COLORS),
+                         "当前提交背景对应的社区评价概率分布；修改输入后需重新点击预测以更新结果。", number=9)])
+```
+
+```python {.marimo}
+#| error: false
+mo.stop(bool(background_errors))
+_features = transform(background)
+feature_details = mo.ui.table([
+    {"特征": key, "模型输入值": "NaN（未知）" if isinstance(value, float) and math.isnan(value) else str(value)}
+    for key, value in _features.items()
+], selection=None)
+mo.accordion({"检查结构化标签与 114 列特征": mo.vstack([
+    mo.md("```json\n" + json.dumps(background, ensure_ascii=False, indent=2) + "\n```"),
+    figure_output(feature_details, "当前表单转换后的 114 列模型输入；NaN 表示未知。与上次提交的预测结果可能不同。",
+                  number=1, kind="Table"),
+])})
+```

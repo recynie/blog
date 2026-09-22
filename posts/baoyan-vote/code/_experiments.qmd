@@ -1,0 +1,49 @@
+```python {.marimo}
+#| error: false
+_experiments = {
+    "权重与顺序": (["投稿等权 · 原始", "投稿等权 · 顺序", "每票等权 · 原始", "每票等权 · 顺序"],
+                   [0.897651, 0.893631, 0.900135, 0.898779]),
+    "低票筛选": (["至少 1 票", "至少 5 票", "至少 10 票", "至少 20 票"],
+                 [0.900135, 0.900067, 0.904508, 0.908942]),
+    "近邻与树模型": (["普通 kNN · k=30", "排序 kNN · k=30", "CatBoost · 原始", "CatBoost · 顺序"],
+                     [0.910439, 0.910665, 0.900135, 0.898779]),
+    "成果表示": (["基线 · 110 列", "关联 · 662 列", "数量 · 114 列", "数量＋关联 · 666 列"],
+                 [0.893631, 0.892876, 0.890675, 0.890628]),
+}
+_rows = [{"实验": group, "方案": label, "CE": value}
+         for group, (labels, values) in _experiments.items()
+         for label, value in zip(labels, values)]
+_base = alt.Chart(alt.Data(values=_rows)).encode(
+    x=alt.X("方案:N", sort=[row["方案"] for row in _rows], title="表示方式 / 实验方案",
+            scale=alt.Scale(paddingInner=0.12, paddingOuter=0.08),
+            axis=alt.Axis(labelAngle=-55, labelFontSize=10, labelLimit=140, labelOverlap=False)), 
+    y=alt.Y("CE:Q", title="票数加权 OOF CE", scale=alt.Scale(domain=[0.888, 0.914], zero=False, nice=False),
+            axis=alt.Axis(format=".3f", values=[0.888, 0.894, 0.900, 0.906, 0.912])),
+    tooltip=[alt.Tooltip("实验:N"), alt.Tooltip("方案:N"), alt.Tooltip("CE:Q", format=".6f")],
+)
+# Explicit baseline: bars encode only the visible interval, never an implicit zero.
+_bars = _base.mark_bar().encode(
+    y2=alt.Y2(datum=0.888),
+    color=alt.Color("实验:N", scale=alt.Scale(domain=list(_experiments),
+                    range=["#123c69", "#287fb8", "#6878c9", "#82b6d9"]),
+                    legend=alt.Legend(title=None, orient="top", columns=4)), 
+)
+_values_text = _base.mark_text(dy=-7, fontSize=8).encode(text=alt.Text("CE:Q", format=".6f"))
+_experiment_chart = (
+    (_bars + _values_text).properties(width="container", height=300,
+        autosize=alt.AutoSizeParams(type="fit-x", contains="padding"))
+    .properties(title=alt.TitleParams(text="纵轴省略 0–0.888 · 越低越好", fontSize=12, anchor="start"),
+                usermeta={"embedOptions": {"renderer": "svg", "actions": False}})
+    .configure(background="#ffffff", font="sans-serif")
+    .configure_view(stroke=None)
+    .configure_axis(labelFontSize=11, titleFontSize=11, gridColor="#e5ebf1")
+)
+figure_output(
+    mo.vstack([mo.ui.altair_chart(_experiment_chart, chart_selection=False, legend_selection=False)
+               .style({"width": "100%", "min-width": "720px"})])
+      .style({"width": "100%", "overflow-x": "auto"}),
+    "四类开发集五折分组实验横排一行，共十六个方案；颜色区分实验类别。"
+    "柱顶为票数加权 OOF CE，越低越好，仅在各实验组内比较。",
+    number=5,
+)
+```

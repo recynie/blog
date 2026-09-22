@@ -1,0 +1,153 @@
+```python {.marimo}
+#| include: false
+#| error: false
+school_order = list(dict.fromkeys(row["本科层次"] for row in school_flows))
+target_order = list(dict.fromkeys(row["目标层次"] for row in school_flows))
+school_chart_rows = [{
+    "source": row["本科层次"], "target": row["目标层次"],
+    "count": int(row["投稿数"]), "total": int(row["本科层次投稿总数"]),
+    "share": float(row["组内比例"]),
+    "school_label": f"{row['本科层次']} · {row['本科层次投稿总数']}",
+} for row in school_flows]
+assert sum(row["count"] for row in school_chart_rows) == 1737
+for _school in school_order:
+    _group = [row for row in school_chart_rows if row["source"] == _school]
+    assert sum(row["count"] for row in _group) == _group[0]["total"]
+    assert math.isclose(sum(row["share"] for row in _group), 1)
+
+school_tooltip = [
+    alt.Tooltip("source:N", title="本科层次"), alt.Tooltip("target:N", title="申请目标"),
+    alt.Tooltip("count:Q", title="投稿数", format=","),
+    alt.Tooltip("share:Q", title="组内比例", format=".1%"),
+    alt.Tooltip("total:Q", title="本科组总数", format=","),
+]
+
+def school_chart_output(chart, caption, *, number, responsive=False):
+    # The Sankey fills the article; dense matrix labels retain a fixed canvas.
+    alt.renderers.enable("default", embed_options={"renderer": "svg", "actions": False})
+    # usermeta overrides marimo's frontend canvas default, unlike renderer options alone.
+    if responsive:
+        chart = chart.properties(width="container", autosize=alt.AutoSizeParams(type="fit", contains="padding"))
+    else:
+        chart = chart.properties(width=640)
+    chart = (chart.properties(usermeta={"embedOptions": {"renderer": "svg", "actions": False}})
+             .configure(background="#ffffff", font="sans-serif")
+             .configure_view(stroke=None)
+             .configure_axis(labelFontSize=12, titleFontSize=12, grid=False))
+    output = mo.ui.altair_chart(chart, chart_selection=False, legend_selection=False)
+    if responsive:
+        output = mo.vstack([output.style({"width": "100%", "min-width": "480px"})]).style(
+            {"width": "100%", "overflow-x": "auto"})
+    else:
+        output = mo.hstack([output], justify="start").style({"overflow-x": "auto", "max-width": "100%"})
+    return figure_output(output, caption, number=number)
+```
+
+```python {.marimo}
+#| error: false
+# Both columns use the same count scale; only the inter-node gaps differ.
+_gap = 65
+_extent = 1737 + _gap * (len(target_order) - 1)
+_positions = {}
+_nodes = []
+for _side, _order in [("source", school_order), ("target", target_order)]:
+    _cursor = (_extent - 1737 - _gap * (len(_order) - 1)) / 2
+    for _label in _order:
+        _count = sum(row["count"] for row in school_chart_rows if row[_side] == _label)
+        _positions[_side, _label] = _cursor
+        _nodes.append({"source": _label if _side == "source" else "",
+                       "target": _label if _side == "target" else "",
+                       "label": _label, "count": _count, "side": _side,
+                       "x": 0.19 if _side == "source" else 0.79,
+                       "x2": 0.21 if _side == "source" else 0.81,
+                       "y": _cursor, "y2": _cursor + _count,
+                       "middle": _cursor + _count / 2,
+                       "text_x": 0.175 if _side == "source" else 0.825,
+                       "text": f"{_label} · {_count}"})
+        _cursor += _count + _gap
+_ribbons = []
+for _row in school_chart_rows:
+    if not _row["count"]:
+        continue
+    _start = _positions["source", _row["source"]]
+    _end = _positions["target", _row["target"]]
+    for _step in range(25):
+        _t = _step / 24
+        # Smoothstep gives horizontal tangents at both ends and constant thickness.
+        _blend = _t * _t * (3 - 2 * _t)
+        _y = _start + (_end - _start) * _blend
+        _ribbons.append({**_row, "x": 0.21 + 0.58 * _t, "y": _y,
+                         "y2": _y + _row["count"], "step": _step,
+                         "flow": f"{_row['source']} → {_row['target']}"})
+    _positions["source", _row["source"]] += _row["count"]
+    _positions["target", _row["target"]] += _row["count"]
+
+_flow_hover = alt.selection_point(name="school_flow_hover", fields=["source", "target"],
+                                  on="@school_ribbons_marks:pointerover", clear="pointerout", toggle=False)
+_node_hover = alt.selection_point(name="school_node_hover", fields=["source", "target"],
+                                  on="@school_nodes_marks:pointerover", clear="pointerout", toggle=False)
+_active = (
+    "(!length(data('school_flow_hover_store')) && !length(data('school_node_hover_store')))"
+    " || (length(data('school_flow_hover_store')) && "
+    "(datum.source === school_flow_hover.source[0] && datum.target === school_flow_hover.target[0]))"
+    " || (length(data('school_node_hover_store')) && "
+    "((school_node_hover.source[0] !== '' && datum.source === school_node_hover.source[0])"
+    " || (school_node_hover.target[0] !== '' && datum.target === school_node_hover.target[0])))"
+)
+# Alternate light and dark blues so adjacent groups remain distinguishable.
+_palette = ["#082653", "#9bc9ed", "#1558b0", "#64ace6", "#103e8c", "#287fc2", "#bedff3", "#3c57d6"]
+_x = alt.X("x:Q", scale=alt.Scale(domain=[0, 1]), axis=None)
+_y = alt.Y("y:Q", scale=alt.Scale(domain=[_extent, 0]), axis=None)
+_links = alt.Chart(alt.Data(values=_ribbons)).mark_area(orient="vertical").encode(
+    x=_x, y=_y, y2="y2:Q", detail="flow:N",
+    color=alt.Color("source:N", scale=alt.Scale(domain=school_order, range=_palette), legend=None),
+    opacity=alt.condition(_active, alt.value(0.78), alt.value(0.30)),
+    tooltip=school_tooltip,
+).properties(name="school_ribbons").add_params(_flow_hover)
+_node_base = alt.Chart(alt.Data(values=_nodes))
+_bars = _node_base.mark_rect().encode(
+    x=_x, x2="x2:Q", y=_y, y2="y2:Q",
+    color=alt.condition(alt.datum.side == "source",
+                        alt.Color("source:N", scale=alt.Scale(domain=school_order, range=_palette), legend=None),
+                        alt.value("#244a7c")),
+    tooltip=[alt.Tooltip("label:N", title="层次"), alt.Tooltip("count:Q", title="投稿数", format=",")],
+).properties(name="school_nodes").add_params(_node_hover)
+_labels = []
+for _side, _align in [("source", "right"), ("target", "left")]:
+    _labels.append(_node_base.transform_filter(alt.datum.side == _side)
+                   .mark_text(align=_align, baseline="middle", fontSize=11, fill="#17243b")
+                   .encode(x=alt.X("text_x:Q", scale=alt.Scale(domain=[0, 1]), axis=None),
+                           y=alt.Y("middle:Q", scale=alt.Scale(domain=[_extent, 0]), axis=None), text="text:N"))
+school_chart_output(
+    (_links + _bars + _labels[0] + _labels[1]).properties(height=470,
+        description="本科层次到申请目标的桑基图，连线宽度表示投稿数"),
+    "本科背景 → 申请目标。流带宽度表示投稿数，颜色区分本科背景，节点标注总数。"
+    "含 3 条目标未填写；流向表示申请意向，不是录取去向。",
+    number=1, responsive=True,
+)
+```
+
+```python {.marimo}
+#| error: false
+_heatmap = alt.Chart(alt.Data(values=school_chart_rows)).encode(
+    x=alt.X("target:N", sort=target_order, title=None,
+            axis=alt.Axis(orient="top", labelAngle=0, domain=False, ticks=False)),
+    y=alt.Y("school_label:N", sort=list(dict.fromkeys(row["school_label"] for row in school_chart_rows)),
+            title=None, axis=alt.Axis(domain=False, ticks=False)),
+    tooltip=school_tooltip,
+)
+_tiles = _heatmap.mark_rect(stroke="#ffffff", strokeWidth=2).encode(
+    color=alt.Color("share:Q", scale=alt.Scale(domain=[0, 1], range=["#f1f5fa", "#244a7c"]),
+                    legend=alt.Legend(title="组内比例", orient="bottom", format=".0%", values=[0, 0.5, 1])),
+)
+_values = _heatmap.mark_text(fontSize=11).encode(
+    text=alt.Text("share:Q", format=".1%"),
+    color=alt.condition(alt.datum.share >= 0.6, alt.value("white"), alt.value("#17243b")),
+)
+school_chart_output(
+    (_tiles + _values).properties(height=320, description="本科层次与申请目标的组内比例热力图"),
+    "各本科背景的申请目标构成。行标签附本科组投稿数，每行合计 100%（显示值有舍入）；"
+    "分母包含目标未填写的记录。清北本科仅 5 条，不宜推广。",
+    number=2,
+)
+```

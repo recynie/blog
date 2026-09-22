@@ -1,0 +1,34 @@
+```python {.marimo}
+#| error: false
+evaluation_weight = mo.ui.dropdown({"投稿等权": "submission_equal", "票数等权": "vote_equal"}, value="投稿等权", label="评估图权重")
+evaluation_weight
+```
+
+```python {.marimo}
+#| error: false
+_scores = aggregate["current_model_evaluation"]["distribution_scores"]
+_weight = evaluation_weight.value
+_metrics = {"cross_entropy": "CE", "distribution_mae": "MAE", "distribution_brier": "Brier", "rps": "RPS"}
+_rows = []
+for _key, _label in _metrics.items():
+    _baseline = _scores["train_distribution_baseline"][_weight][_key]
+    _model = _scores["catboost"][_weight][_key]
+    _rows.append({"指标": _label, "基准": _baseline, "模型": _model,
+                  "降低比例": (_baseline - _model) / _baseline, "零线": 0})
+_base = alt.Chart(alt.Data(values=_rows)).encode(
+    y=alt.Y("指标:N", sort=list(_metrics.values()), title=None),
+    x=alt.X("降低比例:Q", title="误差降低比例（越高越好）",
+            scale=alt.Scale(domain=[-0.02, 0.36], nice=False),
+            axis=alt.Axis(format=".0%", values=[0, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35])),
+    tooltip=[alt.Tooltip("指标:N"), alt.Tooltip("基准:Q", format=".6f"),
+             alt.Tooltip("模型:Q", format=".6f"), alt.Tooltip("降低比例:Q", format="+.2%")],
+)
+_links = _base.mark_rule(color="#c2cbd5", strokeWidth=3).encode(x2="零线:Q")
+_baseline_points = _base.mark_point(filled=True, color="#9ba6b3", size=65).encode(x="零线:Q")
+_model_points = _base.mark_point(filled=True, color="#244a7c", size=95)
+_value_labels = _base.mark_text(align="left", dx=9, fontSize=11).encode(text=alt.Text("降低比例:Q", format="+.2%"))
+figure_output(chart_output((_links + _baseline_points + _model_points + _value_labels).properties(height=220)),
+              f"138 条留出投稿，当前权重：{'投稿等权' if _weight == 'submission_equal' else '票数等权'}。"
+              "灰点为训练平均分布基准（0%），蓝点为 CatBoost；降低比例 =（基准误差 − 模型误差）/ 基准误差，"
+              "正值表示改善，负值表示退化。悬停显示原始指标值。", number=6)
+```

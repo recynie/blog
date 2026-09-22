@@ -1,0 +1,25 @@
+```python {.marimo}
+#| error: false
+_matrix = aggregate["current_model_evaluation"]["confusion_matrix"]
+_classes = _matrix["classes"]
+_rows = [{"实际": actual, "行标签": f"{actual} · n={sum(counts)}", "预测": predicted,
+          "投稿数": counts[j], "组内比例": counts[j] / sum(counts) if sum(counts) else None,
+          "组内投稿数": sum(counts)}
+         for actual, counts in zip(_classes, _matrix["counts"])
+         for j, predicted in enumerate(_classes)]
+_base = alt.Chart(alt.Data(values=_rows)).encode(
+    x=alt.X("预测:N", sort=_classes, title="模型预测类别", axis=alt.Axis(labelAngle=0)),
+    y=alt.Y("行标签:N", sort=list(dict.fromkeys(row["行标签"] for row in _rows)), title="实际最高票类别"),
+    tooltip=[alt.Tooltip("实际:N"), alt.Tooltip("预测:N"), alt.Tooltip("投稿数:Q", format=","),
+             alt.Tooltip("组内投稿数:Q", format=","), alt.Tooltip("组内比例:Q", format=".1%")],
+)
+_tiles = _base.mark_rect(stroke="white", strokeWidth=2).encode(
+    color=alt.Color("组内比例:Q", scale=alt.Scale(domain=[0, 1], range=["#f1f5fa", "#244a7c"]),
+                    legend=alt.Legend(title="行内比例", orient="bottom", format=".0%")))
+_counts = _base.mark_text(fontSize=15).encode(
+    text=alt.Text("投稿数:Q", format=","),
+    color=alt.condition(alt.datum["组内比例"] >= 0.6, alt.value("white"), alt.value("#17243b")))
+figure_output(chart_output((_tiles + _counts).properties(height=400)).style({"width": "100%", "max-width": "480px"}),
+              "135 条有唯一最高票类别的留出投稿，排除 3 条最高票平票记录。行为实际最高票类别，列为模型预测类别；"
+              "格内为投稿数，颜色为行内比例，各行合计 100%。对角线表示预测一致。", number=7)
+```

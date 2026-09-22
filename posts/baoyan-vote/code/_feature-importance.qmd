@@ -1,0 +1,9 @@
+```python {.marimo}
+#| error: false
+_shap_chart = distribution_chart(
+    ["科研与经历信号", "成绩排名与规模", "竞赛与奖项", "目标院校层次", "本科院校层次", "英语", "学位目标", "导师偏好"],
+    [0.307, 0.190, 0.148, 0.140, 0.114, 0.065, 0.029, 0.008],
+    "训练侧 SHAP 归因份额", percent=True, axis_title=["平均绝对 SHAP 份额", "非录取影响"],
+)
+figure_output(_shap_chart, "训练样本的平均绝对 SHAP 按特征组汇总并归一化；数值经过舍入。份额描述模型使用输入的程度。", number=8)
+```

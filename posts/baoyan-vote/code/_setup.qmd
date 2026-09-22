@@ -1,0 +1,89 @@
+```python {.marimo}
+#| include: false
+#| error: false
+import marimo as mo
+import csv
+import altair as alt
+import io
+import json
+import math
+import sys
+import tempfile
+import zipfile
+from html import escape
+from pathlib import Path
+
+if sys.platform == "emscripten":
+    from js import location
+    from pyodide.http import pyfetch
+    _url = str(location.origin) + "/posts/baoyan-vote/public/browser-bundle.zip"
+    # Revalidate the bundle so updated aggregate fields cannot use a stale cache.
+    _response = await pyfetch(_url, cache="no-cache")
+    if not _response.ok:
+        raise RuntimeError(f"模型资源加载失败：HTTP {_response.status}")
+    _archive_bytes = await _response.bytes()
+else:
+    _archive_bytes = (mo.notebook_dir() / "public/browser-bundle.zip").read_bytes()
+browser_bundle_dir = tempfile.TemporaryDirectory(prefix="baoyan-browser-")
+browser_bundle_root = Path(browser_bundle_dir.name)
+with zipfile.ZipFile(io.BytesIO(_archive_bytes)) as _archive:
+    _archive.extractall(browser_bundle_root)
+sys.path.insert(0, str(browser_bundle_root))
+from baoyan_browser.inference import predict as predict_community
+from baoyan_browser.features import transform, validate_background
+from baoyan_browser.schema import TIERS
+from baoyan_browser.ui import dropdown, item_form, structured_background, SIGNAL_LABELS
+aggregate = json.loads((browser_bundle_root / "aggregate-data.json").read_text())
+with (browser_bundle_root / "school-target-flows.csv").open(encoding="utf-8-sig") as _file:
+    school_flows = list(csv.DictReader(_file))
+```
+
+```python {.marimo}
+#| include: false
+#| error: false
+alt.renderers.enable("default", embed_options={"renderer": "svg", "actions": False})
+VOTE_COLORS = ["#244a7c", "#4b7abf", "#a9c8eb"]
+
+def figure_output(output, caption, *, number, kind="Fig."):
+    return mo.vstack([output, mo.Html(
+        f'<div class="baoyan-chart-caption" role="note">'
+        f'{kind} {number}. {escape(caption)}</div>')])
+
+def chart_output(chart, *, width="container"):
+    """Inline aggregate data only; controls, rather than mark selection, drive updates."""
+    alt.renderers.enable("default", embed_options={"renderer": "svg", "actions": False})
+    chart = (chart.properties(width=width, autosize=alt.AutoSizeParams(type="fit", contains="padding"),
+                              usermeta={"embedOptions": {"renderer": "svg", "actions": False}})
+             .configure(background="#ffffff", font="sans-serif")
+             .configure_view(stroke=None)
+             .configure_axis(labelFontSize=12, titleFontSize=12, gridColor="#e5ebf1", labelLimit=125)
+             .configure_title(fontSize=14, anchor="start", subtitleFontSize=11))
+    return mo.ui.altair_chart(chart, chart_selection=False, legend_selection=False)
+
+def distribution_chart(labels, values, title, *, percent=False, colors=None, decimals=0, axis_title=None):
+    rows = [{"类别": label, "数值": value} for label, value in zip(labels, values)]
+    number_format = ".2%" if percent else f",.{decimals}f"
+    chart = alt.Chart(alt.Data(values=rows)).mark_bar(cornerRadiusEnd=3, size=20).encode(
+        y=alt.Y("类别:N", sort=labels, title=None),
+        x=alt.X("数值:Q", title=axis_title or ("比例" if percent else "投稿数"),
+                scale=alt.Scale(domain=[0, 1]) if percent else alt.Scale(zero=True),
+                axis=alt.Axis(format=".0%" if percent else f",.{decimals}f", tickCount=4)),
+        color=alt.Color("类别:N", scale=alt.Scale(domain=labels, range=colors or ["#4b7abf"] * len(labels)), legend=None),
+        tooltip=[alt.Tooltip("类别:N"), alt.Tooltip("数值:Q", format=number_format)],
+    ).properties(height=max(110, len(labels) * 32), title=title)
+    return chart_output(chart)
+
+def comparison_chart(labels, values, title, *, axis_title="票数加权 OOF CE", subtitle="局部横轴 · 越低越好", colors=None):
+    rows = [{"方案": label, "指标": value} for label, value in zip(labels, values)]
+    base = alt.Chart(alt.Data(values=rows)).encode(
+        y=alt.Y("方案:N", sort=labels, title=None),
+        x=alt.X("指标:Q", title=axis_title, scale=alt.Scale(zero=False, padding=28),
+                axis=alt.Axis(format=".3f", tickCount=3)),
+        tooltip=[alt.Tooltip("方案:N"), alt.Tooltip("指标:Q", format=".6f")],
+    )
+    points = base.mark_point(filled=True, size=100).encode(
+        color=alt.Color("方案:N", scale=alt.Scale(domain=labels, range=colors or ["#4b7abf"] * len(labels)), legend=None))
+    labels_chart = base.mark_text(dy=-13, fontSize=11).encode(text=alt.Text("指标:Q", format=".6f"))
+    return chart_output((points + labels_chart).properties(height=max(120, len(labels) * 46),
+                        title=alt.TitleParams(text=title, subtitle=subtitle)))
+```
