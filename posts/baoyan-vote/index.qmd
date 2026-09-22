@@ -1,0 +1,766 @@
+---
+title: "保研定位预测：分析、建模保研社区投票数据"
+date: 2026-09-21
+date-modified: 2026-09-22
+categories: [data analysis, machine learning, python, aigc]
+css: article.css
+engine: marimo
+from: markdown
+execute:
+  enabled: true
+pyproject: |
+  requires-python = ">=3.11"
+  dependencies = ["marimo==0.24.0", "altair==5.5.0"]
+description: ""
+resources:
+  - aggregate-data.json
+  - school-target-flows.csv
+  - public/browser-bundle.zip
+  - public/browser-manifest.json
+---
+
+保研定位社区里，申请者写下自己的背景和目标，其他人投票评价“不行”“刚好”或“OQ”。OQ 是 overqualified 的缩写，表示投票者认为这份背景超过了目标所需的水平。同一份背景可以收到不同评价，这种分歧本身也是数据。
+
+`baoyan-vote` 项目尝试从这些投稿中学习：**给定背景和申请目标，社区会怎样评价？** 本文从 1,737 条投稿出发，介绍数据观察、文本整理和模型实验，最后用一个浏览器内的预测工具展示结果。最值得讨论的是，哪些信息应该保留，以及实验是否支持为它们增加模型复杂度。
+
+这里预测的是社区评价分布。数据没有真实录取结果，因此输出不代表录取概率。
+
+```python {.marimo}
+#| include: false
+#| error: false
+import marimo as mo
+import csv
+import altair as alt
+import io
+import json
+import math
+import sys
+import tempfile
+import zipfile
+from html import escape
+from pathlib import Path
+
+if sys.platform == "emscripten":
+    from js import location
+    from pyodide.http import pyfetch
+    _url = str(location.origin) + "/posts/baoyan-vote/public/browser-bundle.zip"
+    # Revalidate the bundle so updated aggregate fields cannot use a stale cache.
+    _response = await pyfetch(_url, cache="no-cache")
+    if not _response.ok:
+        raise RuntimeError(f"模型资源加载失败：HTTP {_response.status}")
+    _archive_bytes = await _response.bytes()
+else:
+    _archive_bytes = (mo.notebook_dir() / "public/browser-bundle.zip").read_bytes()
+browser_bundle_dir = tempfile.TemporaryDirectory(prefix="baoyan-browser-")
+browser_bundle_root = Path(browser_bundle_dir.name)
+with zipfile.ZipFile(io.BytesIO(_archive_bytes)) as _archive:
+    _archive.extractall(browser_bundle_root)
+sys.path.insert(0, str(browser_bundle_root))
+from baoyan_browser.inference import predict as predict_community
+from baoyan_browser.features import transform, validate_background
+from baoyan_browser.schema import TIERS
+from baoyan_browser.ui import dropdown, item_form, structured_background, SIGNAL_LABELS
+aggregate = json.loads((browser_bundle_root / "aggregate-data.json").read_text())
+with (browser_bundle_root / "school-target-flows.csv").open(encoding="utf-8-sig") as _file:
+    school_flows = list(csv.DictReader(_file))
+```
+
+```python {.marimo}
+#| include: false
+#| error: false
+alt.renderers.enable("default", embed_options={"renderer": "svg", "actions": False})
+VOTE_COLORS = ["#244a7c", "#4b7abf", "#a9c8eb"]
+
+def figure_output(output, caption, *, number, kind="Fig."):
+    return mo.vstack([output, mo.Html(
+        f'<div class="baoyan-chart-caption" role="note">'
+        f'{kind} {number}. {escape(caption)}</div>')])
+
+def chart_output(chart, *, width="container"):
+    """Inline aggregate data only; controls, rather than mark selection, drive updates."""
+    alt.renderers.enable("default", embed_options={"renderer": "svg", "actions": False})
+    chart = (chart.properties(width=width, autosize=alt.AutoSizeParams(type="fit", contains="padding"),
+                              usermeta={"embedOptions": {"renderer": "svg", "actions": False}})
+             .configure(background="#ffffff", font="sans-serif")
+             .configure_view(stroke=None)
+             .configure_axis(labelFontSize=12, titleFontSize=12, gridColor="#e5ebf1", labelLimit=125)
+             .configure_title(fontSize=14, anchor="start", subtitleFontSize=11))
+    return mo.ui.altair_chart(chart, chart_selection=False, legend_selection=False)
+
+def distribution_chart(labels, values, title, *, percent=False, colors=None, decimals=0, axis_title=None):
+    rows = [{"类别": label, "数值": value} for label, value in zip(labels, values)]
+    number_format = ".2%" if percent else f",.{decimals}f"
+    chart = alt.Chart(alt.Data(values=rows)).mark_bar(cornerRadiusEnd=3, size=20).encode(
+        y=alt.Y("类别:N", sort=labels, title=None),
+        x=alt.X("数值:Q", title=axis_title or ("比例" if percent else "投稿数"),
+                scale=alt.Scale(domain=[0, 1]) if percent else alt.Scale(zero=True),
+                axis=alt.Axis(format=".0%" if percent else f",.{decimals}f", tickCount=4)),
+        color=alt.Color("类别:N", scale=alt.Scale(domain=labels, range=colors or ["#4b7abf"] * len(labels)), legend=None),
+        tooltip=[alt.Tooltip("类别:N"), alt.Tooltip("数值:Q", format=number_format)],
+    ).properties(height=max(110, len(labels) * 32), title=title)
+    return chart_output(chart)
+
+def comparison_chart(labels, values, title, *, axis_title="票数加权 OOF CE", subtitle="局部横轴 · 越低越好", colors=None):
+    rows = [{"方案": label, "指标": value} for label, value in zip(labels, values)]
+    base = alt.Chart(alt.Data(values=rows)).encode(
+        y=alt.Y("方案:N", sort=labels, title=None),
+        x=alt.X("指标:Q", title=axis_title, scale=alt.Scale(zero=False, padding=28),
+                axis=alt.Axis(format=".3f", tickCount=3)),
+        tooltip=[alt.Tooltip("方案:N"), alt.Tooltip("指标:Q", format=".6f")],
+    )
+    points = base.mark_point(filled=True, size=100).encode(
+        color=alt.Color("方案:N", scale=alt.Scale(domain=labels, range=colors or ["#4b7abf"] * len(labels)), legend=None))
+    labels_chart = base.mark_text(dy=-13, fontSize=11).encode(text=alt.Text("指标:Q", format=".6f"))
+    return chart_output((points + labels_chart).properties(height=max(120, len(labels) * 46),
+                        title=alt.TitleParams(text=title, subtitle=subtitle)))
+```
+
+## 社区投稿中的背景、目标与评价
+
+数据来自[保研定位投票网站](https://vote.axi404.top)，使用 2026 年 9 月 18 日保存的投稿快照，共 **1,737 条投稿、77,037 张票**。每条投稿包含本科层次、成绩排名、英语与科研竞赛经历，以及申请目标和三类投票数。[^source]
+
+### 本科背景与申请意向
+
+样本中，211、末九和中九本科合计占 **74.0%**；申请目标则集中在华五和中九。分组后，目标的差异更清楚：中九、末九本科最常填写华五，211、双非、四非本科最常填写中九。[^tiers]
+
+```python {.marimo}
+#| include: false
+#| error: false
+school_order = list(dict.fromkeys(row["本科层次"] for row in school_flows))
+target_order = list(dict.fromkeys(row["目标层次"] for row in school_flows))
+school_chart_rows = [{
+    "source": row["本科层次"], "target": row["目标层次"],
+    "count": int(row["投稿数"]), "total": int(row["本科层次投稿总数"]),
+    "share": float(row["组内比例"]),
+    "school_label": f"{row['本科层次']} · {row['本科层次投稿总数']}",
+} for row in school_flows]
+assert sum(row["count"] for row in school_chart_rows) == 1737
+for _school in school_order:
+    _group = [row for row in school_chart_rows if row["source"] == _school]
+    assert sum(row["count"] for row in _group) == _group[0]["total"]
+    assert math.isclose(sum(row["share"] for row in _group), 1)
+
+school_tooltip = [
+    alt.Tooltip("source:N", title="本科层次"), alt.Tooltip("target:N", title="申请目标"),
+    alt.Tooltip("count:Q", title="投稿数", format=","),
+    alt.Tooltip("share:Q", title="组内比例", format=".1%"),
+    alt.Tooltip("total:Q", title="本科组总数", format=","),
+]
+
+def school_chart_output(chart, caption, *, number, responsive=False):
+    # The Sankey fills the article; dense matrix labels retain a fixed canvas.
+    alt.renderers.enable("default", embed_options={"renderer": "svg", "actions": False})
+    # usermeta overrides marimo's frontend canvas default, unlike renderer options alone.
+    if responsive:
+        chart = chart.properties(width="container", autosize=alt.AutoSizeParams(type="fit", contains="padding"))
+    else:
+        chart = chart.properties(width=640)
+    chart = (chart.properties(usermeta={"embedOptions": {"renderer": "svg", "actions": False}})
+             .configure(background="#ffffff", font="sans-serif")
+             .configure_view(stroke=None)
+             .configure_axis(labelFontSize=12, titleFontSize=12, grid=False))
+    output = mo.ui.altair_chart(chart, chart_selection=False, legend_selection=False)
+    if responsive:
+        output = mo.vstack([output.style({"width": "100%", "min-width": "480px"})]).style(
+            {"width": "100%", "overflow-x": "auto"})
+    else:
+        output = mo.hstack([output], justify="start").style({"overflow-x": "auto", "max-width": "100%"})
+    return figure_output(output, caption, number=number)
+```
+
+```python {.marimo}
+#| error: false
+# Both columns use the same count scale; only the inter-node gaps differ.
+_gap = 65
+_extent = 1737 + _gap * (len(target_order) - 1)
+_positions = {}
+_nodes = []
+for _side, _order in [("source", school_order), ("target", target_order)]:
+    _cursor = (_extent - 1737 - _gap * (len(_order) - 1)) / 2
+    for _label in _order:
+        _count = sum(row["count"] for row in school_chart_rows if row[_side] == _label)
+        _positions[_side, _label] = _cursor
+        _nodes.append({"source": _label if _side == "source" else "",
+                       "target": _label if _side == "target" else "",
+                       "label": _label, "count": _count, "side": _side,
+                       "x": 0.19 if _side == "source" else 0.79,
+                       "x2": 0.21 if _side == "source" else 0.81,
+                       "y": _cursor, "y2": _cursor + _count,
+                       "middle": _cursor + _count / 2,
+                       "text_x": 0.175 if _side == "source" else 0.825,
+                       "text": f"{_label} · {_count}"})
+        _cursor += _count + _gap
+_ribbons = []
+for _row in school_chart_rows:
+    if not _row["count"]:
+        continue
+    _start = _positions["source", _row["source"]]
+    _end = _positions["target", _row["target"]]
+    for _step in range(25):
+        _t = _step / 24
+        # Smoothstep gives horizontal tangents at both ends and constant thickness.
+        _blend = _t * _t * (3 - 2 * _t)
+        _y = _start + (_end - _start) * _blend
+        _ribbons.append({**_row, "x": 0.21 + 0.58 * _t, "y": _y,
+                         "y2": _y + _row["count"], "step": _step,
+                         "flow": f"{_row['source']} → {_row['target']}"})
+    _positions["source", _row["source"]] += _row["count"]
+    _positions["target", _row["target"]] += _row["count"]
+
+_flow_hover = alt.selection_point(name="school_flow_hover", fields=["source", "target"],
+                                  on="@school_ribbons_marks:pointerover", clear="pointerout", toggle=False)
+_node_hover = alt.selection_point(name="school_node_hover", fields=["source", "target"],
+                                  on="@school_nodes_marks:pointerover", clear="pointerout", toggle=False)
+_active = (
+    "(!length(data('school_flow_hover_store')) && !length(data('school_node_hover_store')))"
+    " || (length(data('school_flow_hover_store')) && "
+    "(datum.source === school_flow_hover.source[0] && datum.target === school_flow_hover.target[0]))"
+    " || (length(data('school_node_hover_store')) && "
+    "((school_node_hover.source[0] !== '' && datum.source === school_node_hover.source[0])"
+    " || (school_node_hover.target[0] !== '' && datum.target === school_node_hover.target[0])))"
+)
+# Alternate light and dark blues so adjacent groups remain distinguishable.
+_palette = ["#082653", "#9bc9ed", "#1558b0", "#64ace6", "#103e8c", "#287fc2", "#bedff3", "#3c57d6"]
+_x = alt.X("x:Q", scale=alt.Scale(domain=[0, 1]), axis=None)
+_y = alt.Y("y:Q", scale=alt.Scale(domain=[_extent, 0]), axis=None)
+_links = alt.Chart(alt.Data(values=_ribbons)).mark_area(orient="vertical").encode(
+    x=_x, y=_y, y2="y2:Q", detail="flow:N",
+    color=alt.Color("source:N", scale=alt.Scale(domain=school_order, range=_palette), legend=None),
+    opacity=alt.condition(_active, alt.value(0.78), alt.value(0.06)),
+    tooltip=school_tooltip,
+).properties(name="school_ribbons").add_params(_flow_hover)
+_node_base = alt.Chart(alt.Data(values=_nodes))
+_bars = _node_base.mark_rect().encode(
+    x=_x, x2="x2:Q", y=_y, y2="y2:Q",
+    color=alt.condition(alt.datum.side == "source",
+                        alt.Color("source:N", scale=alt.Scale(domain=school_order, range=_palette), legend=None),
+                        alt.value("#244a7c")),
+    tooltip=[alt.Tooltip("label:N", title="层次"), alt.Tooltip("count:Q", title="投稿数", format=",")],
+).properties(name="school_nodes").add_params(_node_hover)
+_labels = []
+for _side, _align in [("source", "right"), ("target", "left")]:
+    _labels.append(_node_base.transform_filter(alt.datum.side == _side)
+                   .mark_text(align=_align, baseline="middle", fontSize=11, fill="#17243b")
+                   .encode(x=alt.X("text_x:Q", scale=alt.Scale(domain=[0, 1]), axis=None),
+                           y=alt.Y("middle:Q", scale=alt.Scale(domain=[_extent, 0]), axis=None), text="text:N"))
+school_chart_output(
+    (_links + _bars + _labels[0] + _labels[1]).properties(height=470,
+        description="本科层次到申请目标的桑基图，连线宽度表示投稿数"),
+    "本科背景 → 申请目标。流带宽度表示投稿数，颜色区分本科背景，节点标注总数。"
+    "悬停节点或流带可高亮关联流向并查看数值。覆盖全部 1,737 条投稿，含 3 条目标未填写；"
+    "流向表示申请意向，不是录取去向。窄屏可横向滚动；首次加载需联网下载 Python 运行时。",
+    number=1, responsive=True,
+)
+```
+
+```python {.marimo}
+#| error: false
+_heatmap = alt.Chart(alt.Data(values=school_chart_rows)).encode(
+    x=alt.X("target:N", sort=target_order, title=None,
+            axis=alt.Axis(orient="top", labelAngle=0, domain=False, ticks=False)),
+    y=alt.Y("school_label:N", sort=list(dict.fromkeys(row["school_label"] for row in school_chart_rows)),
+            title=None, axis=alt.Axis(domain=False, ticks=False)),
+    tooltip=school_tooltip,
+)
+_tiles = _heatmap.mark_rect(stroke="#ffffff", strokeWidth=2).encode(
+    color=alt.Color("share:Q", scale=alt.Scale(domain=[0, 1], range=["#f1f5fa", "#244a7c"]),
+                    legend=alt.Legend(title="组内比例", orient="bottom", format=".0%", values=[0, 0.5, 1])),
+)
+_values = _heatmap.mark_text(fontSize=11).encode(
+    text=alt.Text("share:Q", format=".1%"),
+    color=alt.condition(alt.datum.share >= 0.6, alt.value("white"), alt.value("#17243b")),
+)
+school_chart_output(
+    (_tiles + _values).properties(height=320, description="本科层次与申请目标的组内比例热力图"),
+    "各本科背景的申请目标构成。行标签附本科组投稿数，格内数值与颜色表示组内比例，"
+    "每行合计 100%（显示值有舍入）；分母包含目标未填写的记录。悬停可查看投稿数与分母。"
+    "两图使用相同分类顺序；清北本科仅 5 条，不宜推广。窄屏可横向滚动。",
+    number=2,
+)
+```
+
+这些差异也说明，定位模型需要同时读取**背景与目标**。同样的成绩和科研经历，搭配不同申请目标，可能得到不同的评价。
+
+### 投票分布与样本权重
+
+“刚好”占全部投票的约六成。不过，统计投票有两种自然的方式：
+
+- **每张票等权**：合并所有票，热门投稿贡献更多。
+- **每条投稿等权**：先计算每条投稿的三类比例，再对有票投稿取平均。
+
+```python {.marimo}
+#| error: false
+vote_view = mo.ui.dropdown(["每张票等权", "每条有票投稿等权"], value="每张票等权", label="投票图统计口径")
+vote_view
+```
+
+```python {.marimo}
+#| error: false
+_key = "pooled_vote_shares" if vote_view.value == "每张票等权" else "submission_equal_shares_among_nonzero_vote_records"
+_vote_chart = distribution_chart(aggregate["classes"], aggregate[_key], vote_view.value,
+                                percent=True, colors=VOTE_COLORS)
+figure_output(_vote_chart, {
+    "每张票等权": "全部 77,037 张票的类别比例；每张票权重相同，热门投稿贡献更多。",
+    "每条有票投稿等权": "先计算每条有票投稿的类别比例，再对投稿取平均；零票投稿不参与此口径。",
+}[vote_view.value], number=3)
+```
+
+两种口径在这份数据上比较接近，但对应不同的学习目标：模型应该更重视热门投稿，还是让每份背景拥有相同权重？后面的实验会比较这两种选择。
+
+```python {.marimo}
+#| error: false
+_histogram = aggregate["vote_count_histogram"]
+_bins = _histogram["bins"]
+_bin_order = [row["label"] for row in _bins]
+_counts = [{"区间": row["label"], "投稿数": row["count"]} for row in _bins]
+_shares = [{"区间": row["label"], "投稿数": row["count"], "类别": label, "比例": value, "顺序": i}
+           for i, row in enumerate(_bins) for label, value in row["mean_shares"].items()]
+_vote_histogram = alt.Chart(alt.Data(values=_counts)).mark_bar(color="#4b7abf").encode(
+    x=alt.X("区间:N", sort=_bin_order, title=None, axis=alt.Axis(labels=False, ticks=False)),
+    y=alt.Y("投稿数:Q", title="投稿数", scale=alt.Scale(zero=True), axis=alt.Axis(tickMinStep=1)),
+    tooltip=[alt.Tooltip("区间:N", title="票数区间"), alt.Tooltip("投稿数:Q", format=",")],
+).properties(width=700, height=180)
+_vote_shares = alt.Chart(alt.Data(values=_shares)).mark_line(point=True).encode(
+    x=alt.X("区间:N", sort=_bin_order, title="每条投稿收到的票数（>200 合并）",
+            axis=alt.Axis(labelAngle=-55, labelOverlap=False)),
+    y=alt.Y("比例:Q", title="平均评价比例", scale=alt.Scale(domain=[0, 1]), axis=alt.Axis(format=".0%")),
+    color=alt.Color("类别:N", sort=aggregate["classes"],
+                    scale=alt.Scale(domain=aggregate["classes"], range=VOTE_COLORS),
+                    legend=alt.Legend(title=None, orient="top")),
+    strokeDash=alt.StrokeDash("类别:N", sort=aggregate["classes"], legend=None),
+    order=alt.Order("顺序:Q"),
+    tooltip=[alt.Tooltip("区间:N", title="票数区间"), alt.Tooltip("投稿数:Q", format=","),
+             alt.Tooltip("类别:N"), alt.Tooltip("比例:Q", format=".1%")],
+).properties(width=700, height=210)
+_vote_panels = (alt.vconcat(_vote_histogram, _vote_shares, spacing=16)
+                .resolve_scale(x="shared")
+                .properties(usermeta={"embedOptions": {"renderer": "svg", "actions": False}})
+                .configure(background="#ffffff", font="sans-serif")
+                .configure_view(stroke=None)
+                .configure_axis(labelFontSize=11, titleFontSize=12, gridColor="#e5ebf1"))
+figure_output(
+    mo.hstack([mo.ui.altair_chart(_vote_panels, chart_selection=False, legend_selection=False)],
+              justify="start").style({"overflow-x": "auto", "max-width": "100%"}),
+    "上图为各票数区间的投稿数，下图为投稿等权的平均评价比例。零票单列；其余按 1–10、11–20……191–200 分组，"
+    ">200 票合并为尾组，200 票不计入尾组。横轴为区间类别，尾组不表示等宽票数范围。"
+    "26 条零票投稿不计算评价比例；悬停可查看组内投稿数。高票区间样本较少，折线仅展示描述性关联，不作因果解释。窄屏可横向滚动。",
+    number=4,
+)
+```
+
+另一项差异来自票数多少。投稿票数的中位数为 29，最多有 362 票；只有一票时，三类比例必然集中在一个选项上。低票投稿的评价较不稳定，直接删除又会减少可学习的背景。**投票多少既影响标签质量，也影响数据覆盖，筛选门槛需要用实验判断。**[^buckets]
+
+## 自由文本的结构化处理
+
+模型需要的是可比较的背景，原始投稿却混合了事实、补充说明和未来计划。整理这一步，首先要判断一段话究竟描述了什么。
+
+### 成果、补充与计划的区分
+
+例如，科研栏写“一篇论文在投”，补充栏又写“上面那篇刚录用，预计还会再投一篇”。这是一个虚构例子，其中已有成果只有一项：补充文字更新了进度，未来计划应另外记录。
+
+项目把处理分成两层。规则检查排名与总人数、英语考试与分数范围、票数之和等明确约束；[Typesafe Jev](../jev-typesafe.qmd) 负责离线整理自由文本，识别成果类型、进度、作者位置、数量及条目之间的关系，再把补充属性关联回原成果。[^semantic]
+
+整理时需要保留几种重要区别：
+
+- **没填写与明确没有**：科研情况未知，和明确没有科研，应成为不同状态。
+- **已有成果与未来计划**：在投、录用、计划投稿分别记录，计划不计入当前成果数量。
+- **数量明确与数量未知**：两篇明确的论文，加上一条数量未知的论文记录，表示“至少三篇”，并保留其中一条数量未知的信息。
+
+这些区别会直接改变模型看到的背景。把空缺全填成零，或者把计划算成已完成成果，都会在训练前引入错误。
+
+### 样本筛选与特征表示
+
+清洗后，项目保留 **1,379 条可监督投稿**。零票、目标缺失、背景校验失败、语义处理未完成等记录无法提供完整的训练依据，重复投稿也需要处理。自动语义判断仍可能遗漏成果关系或误排记录，具体质量检查放在补充说明中。[^quality]
+
+每份背景最终转换为 **114 列特征**，主要包含三组信息：
+
+1. **基础背景**：排名除以同口径总人数，同时保留人数；英语保留考试类型与原始分数。
+2. **申请目标与偏好**：目标层次按集合编码，学位偏好区分接受、排除和未知。
+3. **成果属性与数量**：按科研类型、进度、作者位置，以及奖项范围、等级等汇总，保留已知数量和未知数量条目。
+
+此外，模型对 **211 → 末九 → 中九 → 华五 → 清北** 增加局部顺序编码，让树模型更容易比较本科与目标。其他层次仍保留类别信息。这个顺序是否有帮助，以及成果应当怎样聚合，都会进入后续对照实验。[^features]
+
+## 社区评价分布的建模
+
+假设一条投稿收到“不行”2 票、“刚好”7 票、“OQ”1 票，它的监督目标就是
+
+$$
+q=(0.2,\;0.7,\;0.1).
+$$
+
+这类目标称为**软标签**：保留每一类的比例，让模型学习社区的分歧。模型输出三类概率 $p$，通过交叉熵衡量它与投票分布的差异：
+
+$$
+L=-\sum_{c=1}^{3}q_c\log p_c.
+$$
+
+当一个真实有票的类别被赋予很低的概率时，损失会增大。相比只学习最高票类别，这样的目标能区分“大家基本同意刚好”和“主要倾向刚好，但分歧很大”。
+
+### CatBoost 与表格特征
+
+项目采用 CatBoost，一种梯度提升决策树算法。它适合这里约千条样本、数值与类别混合、存在缺失值的表格输入，也能学习条件之间的交互：同样的排名比例，在不同本科层次和申请目标下，可能产生不同意义。
+
+长文本的理解已在清洗阶段完成，因此模型输入可以逐项检查。训练与预测还共用一套特征转换，保证表单里的一项成果与训练数据中的同类成果按同样方式处理。
+
+训练时，一条投稿最多展开为三行相同特征，分别标记三个类别，以投票比例作为权重。这些行的加权损失正好得到上面的公式。**每条投稿展开后的权重之和为 1**，实现了投稿等权；改用原始票数作为权重，就得到每票等权训练。
+
+## 对照实验中的取舍
+
+比较方案前，需要避免模型在验证时遇到已经见过的背景。项目先把可能相关的匿名投稿归组，同组记录始终放在同一侧，再划分出 **1,241 条开发投稿与 138 条留出投稿**。
+
+开发实验采用五折分组交叉验证：每次用四折训练、预测剩余一折，合并得到全部投稿的**折外预测（OOF）**。以下柱状图比较这些预测的票数加权交叉熵（CE），越低越好。每组实验只适合内部比较，不能跨组排成统一榜单。[^evaluation]
+
+```python {.marimo}
+#| error: false
+_experiments = {
+    "权重与顺序": (["投稿等权 · 原始", "投稿等权 · 顺序", "每票等权 · 原始", "每票等权 · 顺序"],
+                   [0.897651, 0.893631, 0.900135, 0.898779]),
+    "低票筛选": (["至少 1 票", "至少 5 票", "至少 10 票", "至少 20 票"],
+                 [0.900135, 0.900067, 0.904508, 0.908942]),
+    "近邻与树模型": (["普通 kNN · k=30", "排序 kNN · k=30", "CatBoost · 原始", "CatBoost · 顺序"],
+                     [0.910439, 0.910665, 0.900135, 0.898779]),
+    "成果表示": (["基线 · 110 列", "关联 · 662 列", "数量 · 114 列", "数量＋关联 · 666 列"],
+                 [0.893631, 0.892876, 0.890675, 0.890628]),
+}
+_rows = [{"实验": group, "方案": label, "CE": value}
+         for group, (labels, values) in _experiments.items()
+         for label, value in zip(labels, values)]
+_base = alt.Chart(alt.Data(values=_rows)).encode(
+    x=alt.X("方案:N", sort=[row["方案"] for row in _rows], title="表示方式 / 实验方案",
+            scale=alt.Scale(paddingInner=0.12, paddingOuter=0.08),
+            axis=alt.Axis(labelAngle=-55, labelFontSize=10, labelLimit=140, labelOverlap=False)), 
+    y=alt.Y("CE:Q", title="票数加权 OOF CE", scale=alt.Scale(domain=[0.888, 0.914], zero=False, nice=False),
+            axis=alt.Axis(format=".3f", values=[0.888, 0.894, 0.900, 0.906, 0.912])),
+    tooltip=[alt.Tooltip("实验:N"), alt.Tooltip("方案:N"), alt.Tooltip("CE:Q", format=".6f")],
+)
+# Explicit baseline: bars encode only the visible interval, never an implicit zero.
+_bars = _base.mark_bar().encode(
+    y2=alt.Y2(datum=0.888),
+    color=alt.Color("实验:N", scale=alt.Scale(domain=list(_experiments),
+                    range=["#123c69", "#287fb8", "#6878c9", "#82b6d9"]),
+                    legend=alt.Legend(title=None, orient="top", columns=4)), 
+)
+_values_text = _base.mark_text(dy=-7, fontSize=8).encode(text=alt.Text("CE:Q", format=".6f"))
+_experiment_chart = (
+    (_bars + _values_text).properties(width="container", height=300,
+        autosize=alt.AutoSizeParams(type="fit-x", contains="padding"))
+    .properties(title=alt.TitleParams(text="纵轴省略 0–0.888 · 越低越好", fontSize=12, anchor="start"),
+                usermeta={"embedOptions": {"renderer": "svg", "actions": False}})
+    .configure(background="#ffffff", font="sans-serif")
+    .configure_view(stroke=None)
+    .configure_axis(labelFontSize=11, titleFontSize=11, gridColor="#e5ebf1")
+)
+figure_output(
+    mo.vstack([mo.ui.altair_chart(_experiment_chart, chart_selection=False, legend_selection=False)
+               .style({"width": "100%", "min-width": "720px"})])
+      .style({"width": "100%", "overflow-x": "auto"}),
+    "四类开发集五折分组实验横排一行，共十六个方案；颜色区分实验类别。"
+    "纵轴统一显示 0.888–0.914，省略 0–0.888；柱高仅表示截取区间，不能解释为 CE 的倍数差异。"
+    "柱顶为票数加权 OOF CE，越低越好，仅在各实验组内比较。宽度不足时可横向滚动。",
+    number=5,
+)
+```
+
+### 投稿权重与层次顺序
+
+给每条投稿相同权重，再加入本科与目标的局部顺序特征，取得了较好的结果。顺序特征使该模型的 CE、平均绝对误差等指标在五折中都改善；增加热门投稿的训练权重，并没有带来更好的票数加权 CE。
+
+这支持保留“投稿等权 + 局部层次顺序”的组合：让每份背景参与学习，同时给模型提供与问题相关的比较信息。不同指标仍有取舍，例如每票等权的顺序模型在票数加权平均绝对误差上略好。[^weight]
+
+### 低票筛选与模型复杂度
+
+低票投稿看起来噪声更多，但筛选没有带来稳定收益。把训练门槛从至少 1 票提高到 5 票，CE 几乎不变；提高到 10、20 票后，表现反而下降。20 票门槛会移除开发人群中约 **36%** 的投稿。实验保留了相同的验证人群，因此这种退化不能用“验证集换了”解释。
+
+增加模型复杂度的收益也很有限。树深从 5 提高到 8，训练拟合改善，折外 CE 基本停留在原处；改用两个累计概率模型表达“不行→刚好→OQ”的顺序，也未优于多分类模型。现有结果支持继续使用较浅的多分类树模型。[^extra]
+
+### 相似背景检索与树模型
+
+k 近邻（kNN）提供了一种直观方案：找到背景最相似的 $k$ 条投稿，合并它们的投票，形成预测。
+
+困难在于定义“相似”。学校、排名、英语、科研、竞赛和目标如何折算为同一个距离，需要人为设计。实验比较了普通类别距离与层次排序距离，并尝试不同邻居数量；这些配置的四项票数加权指标都落后于 CatBoost 参考模型。进一步搜索距离权重，改善仍很小。
+
+近邻检索依然适合帮助读者理解样本，但当前测试结果更支持用 CatBoost 产生预测。[^knn]
+
+### 成果数量与关联特征
+
+成果表示的实验尤其值得关注。早期聚合会把部分计数截断到 3，使四项与十项成果失去区别。修复方法很直接：取消截断，补上已知数量总和与数量未知条目数，特征从 110 列增加到 114 列。
+
+另一条路线是增加关联特征。例如，“一篇高等级论文、另一篇一作论文”与“同一篇论文既是高等级又是一作”应该有所区别。不过，把属性组合展开后，特征数量增至六百多列，大部分新增组合在开发集中从未出现。
+
+“数量 + 关联”的主要 CE 仅比“仅数量”低约 **0.000047**，而仅数量方案在多项其他指标上更好、维度也低得多。最终采用的就是 114 列数量方案。**对这份小数据，修复已经明确的信息损失，比增加大量稀疏组合更有收益。**[^achievement]
+
+## 模型效果与结果解释
+
+最终模型与一个简单基准比较：基准始终输出训练投稿的平均投票分布。超过它，才说明具体背景和目标提供了额外信息。
+
+下面展示同一组 138 条留出投稿上的结果。图中同时比较 CE、平均绝对误差（MAE）、平方误差（Brier）和累计概率误差（RPS）相对基准的降低比例。这四项误差本身越低越好，图中的降低比例越高，改善越大。[^metrics]
+
+```python {.marimo}
+#| error: false
+evaluation_weight = mo.ui.dropdown({"投稿等权": "submission_equal", "票数等权": "vote_equal"}, value="投稿等权", label="评估图权重")
+evaluation_weight
+```
+
+```python {.marimo}
+#| error: false
+_scores = aggregate["current_model_evaluation"]["distribution_scores"]
+_weight = evaluation_weight.value
+_metrics = {"cross_entropy": "CE", "distribution_mae": "MAE", "distribution_brier": "Brier", "rps": "RPS"}
+_rows = []
+for _key, _label in _metrics.items():
+    _baseline = _scores["train_distribution_baseline"][_weight][_key]
+    _model = _scores["catboost"][_weight][_key]
+    _rows.append({"指标": _label, "基准": _baseline, "模型": _model,
+                  "降低比例": (_baseline - _model) / _baseline, "零线": 0})
+_base = alt.Chart(alt.Data(values=_rows)).encode(
+    y=alt.Y("指标:N", sort=list(_metrics.values()), title=None),
+    x=alt.X("降低比例:Q", title="误差降低比例（越高越好）",
+            scale=alt.Scale(domain=[-0.02, 0.36], nice=False),
+            axis=alt.Axis(format=".0%", values=[0, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35])),
+    tooltip=[alt.Tooltip("指标:N"), alt.Tooltip("基准:Q", format=".6f"),
+             alt.Tooltip("模型:Q", format=".6f"), alt.Tooltip("降低比例:Q", format="+.2%")],
+)
+_links = _base.mark_rule(color="#c2cbd5", strokeWidth=3).encode(x2="零线:Q")
+_baseline_points = _base.mark_point(filled=True, color="#9ba6b3", size=65).encode(x="零线:Q")
+_model_points = _base.mark_point(filled=True, color="#244a7c", size=95)
+_value_labels = _base.mark_text(align="left", dx=9, fontSize=11).encode(text=alt.Text("降低比例:Q", format="+.2%"))
+figure_output(chart_output((_links + _baseline_points + _model_points + _value_labels).properties(height=220)),
+              f"138 条留出投稿，当前权重：{'投稿等权' if _weight == 'submission_equal' else '票数等权'}。"
+              "灰点为训练平均分布基准（0%），蓝点为 CatBoost；降低比例 =（基准误差 − 模型误差）/ 基准误差，"
+              "正值表示改善，负值表示退化。悬停显示原始指标值；不同指标的降低幅度不代表相同的实际收益。", number=6)
+```
+
+在投稿等权口径下，模型的 CE 比平均分布基准降低约 **2.85%**，MAE 降低约 **10.69%**。MAE 约为 0.12，表示对投稿和类别平均后，概率的绝对误差约为 **12 个百分点**。模型确实学到了一些信息，但改善幅度有限。
+
+### 分布改善与类别区分
+
+如果只显示最高概率类别，模型几乎总会给出“刚好”：
+
+```python {.marimo}
+#| error: false
+_matrix = aggregate["current_model_evaluation"]["confusion_matrix"]
+_classes = _matrix["classes"]
+_rows = [{"实际": actual, "行标签": f"{actual} · n={sum(counts)}", "预测": predicted,
+          "投稿数": counts[j], "组内比例": counts[j] / sum(counts) if sum(counts) else None,
+          "组内投稿数": sum(counts)}
+         for actual, counts in zip(_classes, _matrix["counts"])
+         for j, predicted in enumerate(_classes)]
+_base = alt.Chart(alt.Data(values=_rows)).encode(
+    x=alt.X("预测:N", sort=_classes, title="模型预测类别", axis=alt.Axis(labelAngle=0)),
+    y=alt.Y("行标签:N", sort=list(dict.fromkeys(row["行标签"] for row in _rows)), title="实际最高票类别"),
+    tooltip=[alt.Tooltip("实际:N"), alt.Tooltip("预测:N"), alt.Tooltip("投稿数:Q", format=","),
+             alt.Tooltip("组内投稿数:Q", format=","), alt.Tooltip("组内比例:Q", format=".1%")],
+)
+_tiles = _base.mark_rect(stroke="white", strokeWidth=2).encode(
+    color=alt.Color("组内比例:Q", scale=alt.Scale(domain=[0, 1], range=["#f1f5fa", "#244a7c"]),
+                    legend=alt.Legend(title="行内比例", orient="bottom", format=".0%")))
+_counts = _base.mark_text(fontSize=15).encode(
+    text=alt.Text("投稿数:Q", format=","),
+    color=alt.condition(alt.datum["组内比例"] >= 0.6, alt.value("white"), alt.value("#17243b")))
+figure_output(chart_output((_tiles + _counts).properties(height=400)).style({"width": "100%", "max-width": "480px"}),
+              "135 条有唯一最高票类别的留出投稿，排除 3 条最高票平票记录。行为实际最高票类别，列为模型预测类别；"
+              "格内为投稿数，颜色为行内比例，各行合计 100%。对角线表示预测一致；实际类别来自社区投票，不代表真实录取结果。", number=7)
+```
+
+在有唯一最高票类别的 135 条留出记录上，模型判断正确 104 条，始终猜“刚好”则正确 103 条。**完整概率分布的拟合有所改善，少数类别的识别仍然很弱。** 这也是预测工具展示三类概率，而不只给一个结论的原因。
+
+数量方案也没有让所有留出指标变好：相较旧版，它的 CE 和 MAE 略有退化。开发实验中的收益值得保留，面向新投稿的效果仍需要新的数据检验。[^holdout]
+
+### 模型使用的背景信息
+
+SHAP 是一种把模型输出拆分为各特征贡献的方法。对训练样本的贡献取绝对值、平均后归一化，可以观察模型主要使用了哪些信息：
+
+```python {.marimo}
+#| error: false
+_shap_chart = distribution_chart(
+    ["科研与经历信号", "成绩排名与规模", "竞赛与奖项", "目标院校层次", "本科院校层次", "英语", "学位目标", "导师偏好"],
+    [0.307, 0.190, 0.148, 0.140, 0.114, 0.065, 0.029, 0.008],
+    "训练侧 SHAP 归因份额", percent=True, axis_title=["平均绝对 SHAP 份额", "非录取影响"],
+)
+figure_output(_shap_chart, "训练样本的平均绝对 SHAP 按特征组汇总并归一化；数值经过舍入。"
+              "份额描述模型使用输入的程度，不表示真实录取的因果影响。", number=8)
+```
+
+科研与经历、成绩排名、竞赛奖项占据较大份额，申请目标同样重要。模型学习的是“背景与目标是否匹配”，因此目标本身参与预测是合理的。这里的份额描述**模型如何使用输入**，不表示某类经历对真实录取的影响比例。[^shap]
+
+## 浏览器中的预测工具
+
+下面的表单使用同一套特征转换与已有模型。quarto-marimo 通过 Pyodide/WASM 在浏览器里运行 Python，Cloudflare Pages 只提供静态文件，填写的背景不需要发送到计算后端。[^browser]
+
+本科与成绩留空表示未知；申请目标至少选择一项。科研和奖项可逐条添加，也可明确选择没有。可以固定其他条件，只修改目标层次、排名或论文进度，观察模型评价分布的变化。
+
+```python {.marimo}
+#| error: false
+mo.md("**WASM / Python 已就绪，可操作图表并提交预测。**" if sys.platform == "emscripten" else "**静态预览：请等待浏览器加载 WASM / Python 后操作。**")
+```
+
+```python {.marimo}
+#| error: false
+basic = mo.ui.dictionary({
+    "school_tier": dropdown(mo, ["unknown", *TIERS], "本科学校层次"),
+    "rank": mo.ui.number(step=1, label="排名"),
+    "total_students": mo.ui.number(step=1, label="专业总人数（与排名同口径）"),
+    "english_type": dropdown(mo, ["unknown", "六级", "四级", "雅思", "托福"], "英语考试"),
+    "english_score": mo.ui.number(step=.5, label="英语分数"),
+})
+mo.vstack([mo.md("#### 基础背景"), basic.vstack()])
+```
+
+```python {.marimo}
+#| error: false
+target = mo.ui.dictionary({
+    "tiers": mo.ui.multiselect(TIERS, value=["中九"], label="目标院校层次（至少一项）"),
+    "degree": dropdown(mo, ["unknown", "硕士", "直博", "随意"], "学位偏好"),
+    "advisor": dropdown(mo, ["unknown", "好导", "羊导", "任意"], "导师偏好"),
+    "accepted_degrees": mo.ui.multiselect({"学硕": "academic", "专硕": "professional", "直博": "phd"}, label="明确接受的学位"),
+    "excluded_degrees": mo.ui.multiselect({"学硕": "academic", "专硕": "professional", "直博": "phd"}, label="明确排除的学位"),
+    "uncertain_degrees": mo.ui.multiselect({"学硕": "academic", "专硕": "professional", "直博": "phd"}, label="偏好尚不确定的学位"),
+})
+mo.vstack([mo.md("#### 申请目标与偏好"), target.vstack()])
+```
+
+```python {.marimo}
+#| include: false
+#| error: false
+def achievement_controls(kind, rows, set_rows):
+    # A top-level UI array makes edits inside dynamic entries reactive.
+    # Keep callbacks bound to its clones, including when adding/deleting rows.
+    forms = mo.ui.array([item_form(mo, kind, row) for row in rows])
+    title = "科研" if kind == "research" else "奖项 / 测评"
+    buttons = [mo.ui.button(label=f"删除{title} {i + 1}",
+               on_click=lambda _, index=i: set_rows([row for j, row in enumerate(forms.value) if j != index]))
+               for i in range(len(forms))]
+    add = mo.ui.button(label=f"＋ 添加{title}条目", on_click=lambda _: set_rows([*forms.value, {}]))
+    cards = [mo.accordion({f"{title} {i + 1}": mo.vstack([form.vstack(), buttons[i]])})
+             for i, form in enumerate(forms)]
+    return forms, [*buttons, add], mo.vstack([*cards, add])
+```
+
+```python {.marimo}
+#| include: false
+#| error: false
+get_research, set_research = mo.state([], allow_self_loops=True)
+get_awards, set_awards = mo.state([], allow_self_loops=True)
+```
+
+```python {.marimo}
+#| error: false
+empty_states = mo.ui.dictionary({
+    "research_state": dropdown(mo, ["unknown", "none"], "无当前科研经历时"),
+    "awards_state": dropdown(mo, ["unknown", "none"], "无当前奖项时"),
+})
+mo.vstack([mo.md("#### 科研与获奖"), empty_states.vstack()])
+```
+
+```python {.marimo}
+#| error: false
+research_entries, research_buttons, _research_cards = achievement_controls("research", get_research(), set_research)
+_research_cards
+```
+
+```python {.marimo}
+#| error: false
+award_entries, award_buttons, _award_cards = achievement_controls("awards", get_awards(), set_awards)
+_award_cards
+```
+
+```python {.marimo}
+#| error: false
+supplements = mo.ui.dictionary({key: mo.ui.dropdown({"明确是": "yes", "明确否": "no"}, label=label) for key, label in SIGNAL_LABELS.items()})
+mo.accordion({"补充信息（选填）": supplements.vstack()})
+```
+
+```python {.marimo}
+#| error: false
+background = structured_background({**basic.value, **empty_states.value}, target.value,
+                                  research_entries.value, award_entries.value, supplements.value)
+background_errors = validate_background(background)
+if background_errors:
+    mo.output.replace(mo.callout("；".join(background_errors), kind="danger"))
+```
+
+```python {.marimo}
+#| error: false
+predict_button = mo.ui.run_button(label="开始预测社区评价", disabled=bool(background_errors))
+predict_button
+```
+
+```python {.marimo}
+#| error: false
+mo.stop(not predict_button.value or bool(background_errors))
+_prediction = predict_community(background)
+mo.vstack([mo.md(f"### 预测评价：{_prediction['prediction']}"),
+           figure_output(distribution_chart(aggregate["classes"], [_prediction["probabilities"][name] for name in aggregate["classes"]],
+                              "社区评价分布（非录取概率）", percent=True, colors=VOTE_COLORS),
+                         "当前提交背景对应的社区评价概率分布；非真实录取概率。修改输入后需重新点击预测以更新结果。", number=9)])
+```
+
+```python {.marimo}
+#| error: false
+mo.stop(bool(background_errors))
+_features = transform(background)
+feature_details = mo.ui.table([
+    {"特征": key, "模型输入值": "NaN（未知）" if isinstance(value, float) and math.isnan(value) else str(value)}
+    for key, value in _features.items()
+], selection=None)
+mo.accordion({"检查结构化标签与 114 列特征": mo.vstack([
+    mo.md("```json\n" + json.dumps(background, ensure_ascii=False, indent=2) + "\n```"),
+    figure_output(feature_details, "当前表单转换后的 114 列模型输入；NaN 表示未知。随表单修改即时更新，与上次提交的预测结果可能不同。",
+                  number=1, kind="Table"),
+])})
+```
+
+## 这次实践的收获
+
+这项工作的关键在于让数据表示、学习目标与评估方式保持一致：用结构化背景保留文本中的事实和状态，用软标签保留投票分歧，再通过固定分组实验判断哪些设计值得采用。
+
+实验中比较有价值的改进，来自局部层次顺序和成果数量这些具体信息。提高筛票门槛、加深树、展开更多组合，都没有自动带来更好的结果。最终模型能够比平均分布更贴近社区投票，但仍偏向多数类别。
+
+接下来更值得投入的是补充证据：用人工标注检查数量与成果关联的提取质量，收集未参与开发的新投稿，再检查不同背景下的误差和概率校准。这样才能判断，当前限制主要来自数据整理、样本覆盖，还是预测算法。
+
+::: {.callout-note collapse="true" title="补充：数据与实验记录"}
+本文依据截至 2026 年 9 月 21 日的已有产物，清洗版本为 MVP-8，模型版本为 `mvp-10-quantities-only`。没有重新清洗、训练或调用语义 API。
+
+可下载[聚合统计与评估数据](aggregate-data.json)、[本科—目标汇总表](school-target-flows.csv)及[模型导出校验记录](public/browser-manifest.json)。公开资源不含逐条投稿、投稿 ID 或认证信息。
+
+项目内的主要依据包括：`data/summary.json` 的快照统计、`docs/mvp8-quality-review.md` 的清洗抽查、`experiments/` 下各主题的 `results.md`、`artifacts/model/evaluation.json` 的最终指标，以及 `docs/model-interpretability/` 的归因报告。聚合文件记录了来源哈希。
+
+补充实验细节：
+
+- 当前 CatBoost 固定为 350 轮、树深 5、学习率 0.045、叶子 L2 正则系数 6，损失函数为 `MultiClass`。
+- 深度从 5 增至 8，训练 CE 从 0.879245 降至 0.874719，票数加权 OOF CE 从 0.900135 变为 0.900387。深度 7 的最低值为 0.900105，折间方向不一致。
+- 两个累计概率模型的票数加权 OOF CE 为 0.900365，略差于多分类参考的 0.900135，RPS 也未改善。
+- 数量方案上增加固定成果槽位后，特征扩至 171 列，票数加权 CE 从 0.890675 上升至 0.897005，两种权重下的四项指标在五折中均退化，未采用。
+
+描述性图表来自公开汇总数据，实验图使用已有报告中的指标。原始数据与冻结划分仍保存在受控项目中，公开汇总文件不包含完整训练材料。
+:::
+
+[^source]: 快照来源记录为浏览器导出，保存于 2026-09-18 10:56:19 UTC。采集程序检查重复 ID、非负整数票数及分项合计。统计单位为投稿，同一人可能多次提交；社区投稿和投票均存在自选择，不能代表全部保研学生。
+
+[^tiers]: 图表沿用网站原始标签，不重新推断学校。C9、华五等分类可能交叠，不能将所有标签当作互斥的客观排名。原始目标缺失的 3 条投稿单列，描述统计使用全部原始记录，和后续训练样本的口径不同。
+
+[^buckets]: 票数分布使用同一原始快照重新聚合：零票单列，有票投稿按 1–10、11–20……191–200 分组，严格大于 200 票的投稿合并。评价比例先按投稿计算，再在组内取平均；零票和空组比例未定义。公开数据只保存区间计数及平均比例，不包含逐条票数。
+
+[^semantic]: 语义判断低于 0.8 的接受阈值，或所选答案与最高概率选项不一致时，降为未知；关联冲突保留审计记录。该阈值不能解释为标签准确率。Jev 仅参与历史清洗，已有执行的估算实际费用约 1.86 美元。
+
+[^quality]: 1,736 条完成语义处理，1 条失败。排除原因可以重叠；“虚构或真实性不确定”的 288 条包含保守误排，不能视为已确认虚假。训练前固定的 20 条定性抽查发现数量、条目关联和目标偏好仍会遗漏或误判，没有据此计算语义准确率。
+
+[^features]: 局部顺序编码为 0–4，并记录已映射目标的最小值、最大值及已映射和未映射数量；C9、双非、四非的顺序位置缺失，原类别保留。模型没有单调约束。清洗后的目标可以是集合，与描述图的原始目标字段不同。投稿 ID、票数、点赞、评论及时间戳不进入预测特征。
+
+[^evaluation]: 背景分组依据学校、排名、英语、成果名称和文本相似度等线索，无法确认真实身份。先分组划分，再展开软标签训练行。五折指标合并折外预测计算；点图采用局部横轴。开发折和原始留出快照均参与过历史研究，因此本文报告回顾性结果，不作为新的独立盲测。
+
+[^weight]: 加入顺序特征后，投稿等权模型在两种评价权重下的 CE、MAE、Brier、RPS 均为 5/5 折改善。与每票等权顺序模型相比，其票数加权 MAE 约高 0.000140；训练权重和评估权重是两个独立选择。
+
+[^extra]: 筛票、深度及累计概率实验采用当时的原始特征与每票等权训练，分别改变一项设计，并非对当前数量模型重新调参。筛票只作用于训练折；背景覆盖减少可能影响结果，实验未单独确认这一因果机制。
+
+[^knn]: 两类距离均尝试 $k=10,30,50,100$，各自主要 CE 最优为 $k=30$。CatBoost 参考采用每票等权训练。后续嵌套分组验证搜索六块距离权重，使排序 kNN 的 CE 从 0.910665 降至 0.910469，RPS 反而变差；它只隔离此次权重搜索，无法消除此前方案选择的偏差。
+
+[^achievement]: 成果实验均采用投稿等权和相同层次顺序特征。552 个新增关联特征中，426 个在开发集全为零。仅数量方案的投稿等权四项指标及票数加权 MAE、Brier 均优于数量加关联；相对基线，其主要 CE 在 4/5 折改善，其中一折贡献较大。
+
+[^metrics]: MAE 为三类概率绝对误差的平均；Brier 为三类概率平方误差之和；RPS 为按“不行→刚好→OQ”排序后两个累计概率误差平方的平均。概率误差不能换算为分类准确率。真实投票有分歧时，即使完美还原，CE 也可以大于零。
+
+[^holdout]: 旧版 110 列模型的投稿等权留出 CE 为 0.897711，数量版为 0.898398；MAE 约从 0.11943 变为 0.11991，Brier 略降。项目没有依据这次留出审计继续调整候选或参数。
+
+[^shap]: 对训练侧 1,241 条投稿及三个类别的 SHAP 绝对贡献取平均，再归一化并按特征组加总。解释对象是模型原始分数（logit）；相关特征及各组特征数量会影响份额。科研组含实习等经历信号。图中报告值舍入后合计 100.1%，未重新归一化，也未验证新样本稳定性。
+
+[^browser]: 预测使用 CatBoost 导出的纯 Python 模型，并保留共享特征处理；导出时对全部 1,379 条合格样本和合成背景检查与原生模型的概率一致性，容限为 `1e-12`。浏览器下载模型参数、运行时与依赖，首次需联网。改变输入得到的是模型响应，不能推导出对真实录取的因果影响。

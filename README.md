@@ -4,18 +4,7 @@ Yukiguni 是一个使用 [Quarto](https://quarto.org/) 构建的个人博客，�
 
 源码仓库：[recynie/blog](https://github.com/recynie/blog)，源码分支为 `main`。
 
-## 内容
-
-- **数学与机器学习**：组合数学、概率论、Neural ODE、Transformer、PPO / GRPO，以及神经网络损失地形。
-- **科研工具与自动化研究**：文献工具、自动化研究系统及相关方法调查。
-- **开发与系统实践**：Linux 环境、Python 工具、容器、编辑器和应用部署记录。
-- **摄影**：Gallery 以响应式瀑布流展示照片，支持灯箱查看。
-
-首页提供按日期排列的文章列表，以及分类、排序和筛选功能；站内搜索用于查找文章内容。
-
 ## 技术实现
-
-### 静态网站
 
 Quarto 将 `.qmd` 源文件构建为 HTML，输出到 `_site/`。网站采用内置 Zephyr 主题，通过少量 CSS 调整配色、文章列表和图库布局。导航、目录、搜索和图片灯箱使用 Quarto 原生功能。
 
@@ -29,8 +18,6 @@ Quarto 将 `.qmd` 源文件构建为 HTML，输出到 `_site/`。网站采用内
 - [uv](https://docs.astral.sh/uv/)，用于管理 Python 构建依赖及运行校验脚本。
 - Python **≥ 3.11**，可由 uv 管理。
 
-Quarto 安装方式见[官方说明](https://quarto.org/docs/get-started/)。仓库已包含 `quarto-marimo` **0.5.0**；交互文章的 front matter 声明 `marimo==0.24.0` 和 `numpy>=2,<3`，扩展通过 uv 管理其环境。
-
 ```bash
 # 构建全站
 quarto render
@@ -40,6 +27,9 @@ uv run scripts/verify.py
 
 # 本机预览
 quarto preview --host 127.0.0.1 --port 4200 --no-browser
+
+# 局域网内预览
+quarto preview --host 0.0.0.0 --port 4200 --no-browser
 ```
 
 预览地址为 <http://127.0.0.1:4200/>。校验脚本检查文章输出、非空文章的搜索收录、草稿隔离，以及生成 HTML 中的本地链接和资源路径。浏览器中的 Python 交互需要另行验证。
@@ -61,14 +51,16 @@ quarto preview --host 127.0.0.1 --port 4200 --no-browser
 ---
 title: "文章标题"
 date: 2026-09-11
-categories: [python]
-description: "文章摘要"
+categories: 
+- python
+description: |
+    文章摘要
 ---
 ```
 
 日期使用 ISO 格式，更新日期填写 `date-modified`。分类和标签统一使用 `categories`，内容使用小写，单词之间用空格分隔（如 `machine learning`）。`posts/_metadata.yml` 提供共享作者信息、标题样式和 Markdown 解析设置。
 
-本地草稿放在 `drafts/<文章名>.qmd` 或 `drafts/<文章名>/index.qmd`，设置 `draft: true`。`drafts/` 同时排除于 Git 提交和全站渲染；克隆仓库时不会获得这些草稿。发布时将文章文件或目录移入 `posts/`，删除 `draft: true`，检查内容及资源后重新构建。单独添加 `draft` 分类标签不会隐藏文章。
+本地草稿放在 `drafts/<文章名>.qmd` 或 `drafts/<文章名>/index.qmd`。
 
 ### 图片与样式
 
@@ -101,9 +93,3 @@ uv run --with cairosvg python -c 'import cairosvg; cairosvg.svg2png(url="images/
 `scripts/build-cloudflare.sh` 面向 Linux x86_64 构建环境，在临时目录安装 Quarto **1.10.18** 和 uv **0.11.18**，通过 `UV_PYTHON=3.12` 选择 Python，随后构建全站、运行校验并检查输出文件不超过 Pages 的单文件 **25 MiB** 限制。脚本退出时清理临时工具，不需要 root 权限。
 
 站点地址为 <https://yukiguni-xennon.pages.dev/>，已在 `_quarto.yml` 的 `website.site-url` 中配置。Cloudflare 控制台的仓库连接与首次部署需要单独完成。接入后推送到 `main` 会自动触发部署，无需 GitHub Actions。后续更换域名时，同步更新 `website.site-url`；自定义域名通过 Pages 项目的 Custom domains 配置。
-
-### Google 搜索收录
-
-配置 `website.site-url` 后，Quarto 构建会生成 `_site/sitemap.xml`。根目录的 `robots.txt` 通过 `project.resources` 复制到构建输出，允许抓取并声明站点地图地址；更换域名时同步更新此文件。部署后检查 <https://yukiguni-xennon.pages.dev/sitemap.xml> 可公开访问。在 [Google Search Console](https://search.google.com/search-console/) 中添加网址前缀 `https://yukiguni-xennon.pages.dev/`，按提示完成所有权验证，再提交 `sitemap.xml`。可通过「网址检查」为首页和重要文章请求编入索引；实际收录情况以 Search Console 报告为准。站内搜索 `website.search` 与 Google 收录独立。
-
-仓库中的 `gh-pages` 分支保存旧 Hexo 站点，与当前 Quarto 源码独立。新站采用自身的文章路径，不维护旧站 URL 跳转。`_site/`、`.quarto/` 和本地环境缓存不提交到源码分支。
