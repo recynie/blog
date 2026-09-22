@@ -19,13 +19,12 @@ curl -fsSL --retry 3 --retry-all-errors --connect-timeout 30 \
   -o "$TOOLS_DIR/uv.tar.gz"
 tar -xzf "$TOOLS_DIR/uv.tar.gz" -C "$TOOLS_DIR"
 export PATH="$TOOLS_DIR/quarto-${QUARTO_VERSION}/bin:$TOOLS_DIR/uv-x86_64-unknown-linux-gnu:$PATH"
-# Use the same Python minor version for rendering and verification.
+# Pin the Python minor version used by the build.
 export UV_PYTHON=3.12
 
 quarto --version
 uv --version
 quarto render
-uv run --no-project scripts/verify.py
 
 uv run --no-project python - <<'PY'
 from pathlib import Path

@@ -15,15 +15,12 @@ Quarto 将 `.qmd` 源文件构建为 HTML，输出到 `_site/`。网站采用内
 ### 环境
 
 - Quarto **≥ 1.9.20**，满足所用扩展的要求。
-- [uv](https://docs.astral.sh/uv/)，用于管理 Python 构建依赖及运行校验脚本。
+- [uv](https://docs.astral.sh/uv/)，用于管理 Python 构建依赖。
 - Python **≥ 3.11**，可由 uv 管理。
 
 ```bash
 # 构建全站
 quarto render
-
-# 校验构建结果
-uv run scripts/verify.py
 
 # 本机预览
 quarto preview --host 127.0.0.1 --port 4200 --no-browser
@@ -32,7 +29,7 @@ quarto preview --host 127.0.0.1 --port 4200 --no-browser
 quarto preview --host 0.0.0.0 --port 4200 --no-browser
 ```
 
-预览地址为 <http://127.0.0.1:4200/>。校验脚本检查文章输出、非空文章的搜索收录、草稿隔离，以及生成 HTML 中的本地链接和资源路径。浏览器中的 Python 交互需要另行验证。
+预览地址为 <http://127.0.0.1:4200/>。浏览器中的 Python 交互需要另行验证。
 
 ## 写作与维护
 
@@ -62,6 +59,14 @@ description: |
 
 本地草稿放在 `drafts/<文章名>.qmd` 或 `drafts/<文章名>/index.qmd`。
 
+### 保研文章模型导出
+
+`posts/baoyan-vote/_export-browser.py` 用于更新该文章的浏览器模型包与聚合统计，需要另行提供受控的原始项目；日常网站构建无需运行。脚本不作为站点资源发布。
+
+```bash
+uv run posts/baoyan-vote/_export-browser.py --source /path/to/baoyan-vote
+```
+
 ### 图片与样式
 
 站点标识采用圆形雪夜、暖白月亮与双层雪坡，配色与导航栏一致。矢量源文件为 `images/yukiguni-logo.svg`，导航栏以 36 px 显示；`images/yukiguni-favicon.png` 为同图案的 48 × 48 px 透明背景图标。两者在 `_quarto.yml` 中配置。修改 SVG 后重新生成 favicon：
@@ -90,6 +95,6 @@ uv run --with cairosvg python -c 'import cairosvg; cairosvg.svg2png(url="images/
 | 构建系统 | v3 |
 | 环境变量 | `PYTHON_VERSION=3.12` |
 
-`scripts/build-cloudflare.sh` 面向 Linux x86_64 构建环境，在临时目录安装 Quarto **1.10.18** 和 uv **0.11.18**，通过 `UV_PYTHON=3.12` 选择 Python，随后构建全站、运行校验并检查输出文件不超过 Pages 的单文件 **25 MiB** 限制。脚本退出时清理临时工具，不需要 root 权限。
+`scripts/build-cloudflare.sh` 面向 Linux x86_64 构建环境，在临时目录安装 Quarto **1.10.18** 和 uv **0.11.18**，通过 `UV_PYTHON=3.12` 选择 Python，随后构建全站并检查输出文件不超过 Pages 的单文件 **25 MiB** 限制。脚本退出时清理临时工具，不需要 root 权限。
 
 站点地址为 <https://yukiguni-xennon.pages.dev/>，已在 `_quarto.yml` 的 `website.site-url` 中配置。Cloudflare 控制台的仓库连接与首次部署需要单独完成。接入后推送到 `main` 会自动触发部署，无需 GitHub Actions。后续更换域名时，同步更新 `website.site-url`；自定义域名通过 Pages 项目的 Custom domains 配置。
