@@ -14,20 +14,11 @@ format:
 
 ::: {.gallery-masonry}
 
-![FomaPan400, NikonFM, Nikkor-H Auto 50mm f/2](images/FomaPan400-2026-08-27-0003.jpg){
-group="Roll #2: FomaPan400, NikonFM",
-description="DLUT, Dalian"
-}
+![FomaPan400, NikonFM, Nikkor-H Auto 50mm f/2](images/FomaPan400-2026-08-27-0003.jpg){group="Roll #2: FomaPan400, NikonFM" description="DLUT, Dalian"}
 
-![FomaPan400, NikonFM, Nikkor-H Auto 50mm f/2](images/FomaPan400-2026-08-27-0016.jpg){
-group="Roll #2: FomaPan400, NikonFM",
-description="Shanghai"
-}
+![FomaPan400, NikonFM, Nikkor-H Auto 50mm f/2](images/FomaPan400-2026-08-27-0016.jpg){group="Roll #2: FomaPan400, NikonFM" description="Shanghai"}
 
-![FomaPan400, NikonFM, Zeiss Distagon ZF.2 25mm f/2.8](images/FomaPan400-2026-08-27-0037.jpg){
-group="Roll #2: FomaPan400, NikonFM",
-description="DLUT, Dalian"
-}
+![FomaPan400, NikonFM, Zeiss Distagon ZF.2 25mm f/2.8](images/FomaPan400-2026-08-27-0037.jpg){group="Roll #2: FomaPan400, NikonFM" description="DLUT, Dalian"}
 
 :::
 

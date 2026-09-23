@@ -77,7 +77,11 @@ uv run posts/baoyan-vote/_export-browser.py --source /path/to/baoyan-vote
 uv run --with cairosvg python -c 'import cairosvg; cairosvg.svg2png(url="images/yukiguni-logo.svg", write_to="images/yukiguni-favicon.png", output_width=48, output_height=48)'
 ```
 
-共享图片位于 `images/`。向图库添加照片时，在 `gallery.qmd` 的 `.gallery-masonry` 容器内插入图片，各图片之间保留空行。
+共享图片位于 `images/`。向图库添加照片时，在 `gallery.qmd` 的 `.gallery-masonry` 容器内插入图片，各图片之间保留空行。图片属性使用空格分隔，不加逗号；相同 `group` 的照片可在灯箱内连续切换，`description` 用于灯箱说明：
+
+```markdown
+![照片标题](images/photo.jpg){group="Roll #2" description="拍摄地点"}
+```
 
 全站配色、首页列表和图库样式分别位于 `styles/colors.css`、`styles/listing.css` 和 `styles/gallery.css`。交互文章的实现来源、改动说明和第三方许可证保存在文章目录中。
 
