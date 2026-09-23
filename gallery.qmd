@@ -1,5 +1,6 @@
 ---
 title: "Gallery"
+title-block-banner: true
 toc: false
 page-layout: full
 lightbox:
