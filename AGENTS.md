@@ -8,6 +8,7 @@
 _quarto.yml                         # 全站配置、渲染范围与默认执行策略
 robots.txt                          # 搜索引擎抓取规则与站点地图地址，构建时复制到站点根目录
 index.qmd                           # 雪原首屏与首页文章列表、分类、排序与筛选
+about.qmd                           # About 页面
 gallery.qmd                        # 摄影图库与灯箱入口
 posts/
   _metadata.yml                     # 文章共享元数据与 Markdown 解析设置

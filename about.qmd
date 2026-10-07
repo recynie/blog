@@ -1,0 +1,37 @@
+---
+title: "About"
+title-block-banner: true
+toc: false
+---
+
+## About
+
+这是我的个人blog网站，包含我想记录、分享的各种东西。
+
+目前，本站posts的主要主题有：
+
+- 软硬件。软硬件的推荐、选择方法、使用心得，以及软件设计和选择的方法论。
+- 个人兴趣项目。多是ML、可视化相关。
+- 摄影。主要是技术向的分享，例如成像原理解释、摄影器材介绍等。
+- AI技术分享。具体topic取决于我的科研和学习内容，目前主要是AI for proteins, AI agents, AI scientists / RSI / auto research领域，以及它们需要的技术（框架、算法等）。
+
+## Tags
+
+本站posts一般都有多个tags，标明post的内容。
+
+特殊地，部分tag标注了AI的使用情况：
+
+- `aigc`(AI generated content): post文字部分由AI生成，且大部分内容未由我修改。post主题由我指定，我能保证其真实性和正确性。一般来说这种post用于汇报我开展的兴趣项目、介绍软件。
+- `aiac`(AI assisted content): post的部分内容（一般是补充信息或需要广泛调研的内容）由AI生成。文章主要思路来自我，文章主体由我撰写。可能会标注使用AI生成的内容。
+
+还有部分tag标明了post的性质：
+
+- `short article`: 随手记录的想法，作为文章来说可能不完整（例如缺少引入、介绍、结论等）。
+- `position`: 表明我的立场，类似于position paper的post。
+
+## Credits
+
+- blog站点使用quarto搭建，通过github托管，使用cloudflare pages部署。
+- 文章中的交互式笔记使用marimo撰写。
+- 文章中的大部分交互式图表使用vega-altair框架。
+- 在站点部署、前端搭建、文章撰写中使用pi coding agent。

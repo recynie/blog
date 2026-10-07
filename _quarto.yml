@@ -4,6 +4,7 @@ project:
     - robots.txt
     - scripts/home.js
   render:
+    - about.qmd
     - index.qmd
     - gallery.qmd
     - posts/**/*.qmd
@@ -25,6 +26,8 @@ website:
         text: Posts
       - href: gallery.qmd
         text: Gallery
+      - href: about.qmd
+        text: About
   search: true
 
 format:
