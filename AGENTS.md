@@ -35,7 +35,8 @@ _site/                              # 生成的站点，不提交
 ## 内容与实现约定
 
 - 文章支持 `posts/<文章名>.qmd`（简单文章）和 `posts/<文章名>/index.qmd`（含专属资源的复杂文章，一般是含有marimo等交互资源的文章），共享设置位于 `posts/_metadata.yml`；两种布局均参与渲染、首页列表和搜索。迁移布局会改变 URL 和相对资源路径，需同步更新引用。修改 Markdown 解析选项时留意已有文章的换行、列表和标题行为。
-- 草稿保留在本地 `drafts/`，支持 `drafts/<文章名>.qmd` 和 `drafts/<文章名>/index.qmd`，设置 `draft: true`；不要强制加入 Git。`draft` 分类标签不具备隐藏作用。
+- 新建文章使用 `drafts/_template.qmd` 作为模板。
+- 草稿保留在本地 `drafts/`，支持 `drafts/<文章名>.qmd` 和 `drafts/<文章名>/index.qmd`；不要加入 Git。
 - 文章可通过 `{{< include code/_name.qmd >}}` 引入代码片段；片段文件名以 `_` 开头、不放 YAML 元数据，不作为独立文章渲染。片段内相对路径以主文章目录为基准，保留 marimo cell 边界与依赖顺序。
 - `_quarto.yml` 默认关闭代码执行。需要计算的文章自行声明引擎、依赖和执行设置，避免全站开启执行。
 - 优先使用 Quarto 原生网站功能，样式集中在 `styles/` 或文章专属 CSS 中。直接修改 `_site/` 不会保留到下一次构建。
@@ -47,7 +48,7 @@ _site/                              # 生成的站点，不提交
 
 ```bash
 quarto render
-quarto preview --host 127.0.0.1 --port 4200 --no-browser
+quarto preview --host 0.0.0.0 --port 4200 --no-browser
 ```
 
 - 修改内容、配置或资源后，重新构建网站。
