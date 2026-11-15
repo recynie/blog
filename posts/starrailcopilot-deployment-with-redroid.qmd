@@ -6,7 +6,7 @@ description: 在Linux上用Docker运行Redroid，通过ADB将Android版《崩坏
 categories:
 - softwares
 - container
-- auto gaming
+- game
 - aigc
 ---
 
