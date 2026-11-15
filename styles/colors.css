@@ -6,6 +6,7 @@
   --site-link-background: var(--site-banner-background);
   --site-link-hover-background: var(--site-header-background);
   --site-link-icon-color: #326ba8;
+  --site-code-foreground: #344d60;
 }
 
 #quarto-header .navbar {
@@ -29,6 +30,25 @@
   --bs-navbar-brand-color: var(--site-header-foreground);
   --bs-navbar-brand-hover-color: #000;
   color: var(--site-header-foreground);
+}
+
+/* Keep emphasis weight and code typography; only harmonize their colors. */
+#quarto-document-content :is(strong, b):not(:where(
+  #title-block-header *, .quarto-listing *, pre *, code *,
+  .html-widget *, .plotly *, .leaflet-container *
+)) {
+  color: var(--site-header-foreground);
+}
+
+#quarto-document-content code:not(:where(pre *, .sourceCode *)) {
+  color: var(--site-code-foreground);
+  background-color: var(--site-banner-background);
+}
+
+/* Highlighted blocks have a background wrapper; leave token colors and
+   transparent plain-text/output blocks unchanged. */
+#quarto-document-content div.sourceCode {
+  background-color: var(--site-banner-background);
 }
 
 /* Default for content links, including captions, headings and custom layouts.
