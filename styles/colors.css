@@ -3,8 +3,8 @@
   --site-banner-background: #eef3f7;
   --site-header-background: #dce5ed;
   --site-header-foreground: #172b3d;
-  --site-link-background: var(--site-banner-background);
-  --site-link-hover-background: var(--site-header-background);
+  --site-link-background: transparent;
+  --site-link-hover-background: var(--site-banner-background);
   --site-link-icon-color: #326ba8;
   --site-code-foreground: #344d60;
   --site-navigation-link-color: #265180;
@@ -87,7 +87,7 @@
   color: inherit;
   background-color: var(--site-link-background);
   text-decoration: none;
-  padding-inline: 0.16em var(--site-link-padding-end, 0.16em);
+  padding-inline: 0.16em 0.08em;
   border-radius: 2px;
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
@@ -105,15 +105,9 @@
   background-color: var(--site-link-hover-background);
 }
 
-/* The external marker already provides separation on the right. */
-a.external {
-  --site-link-background: transparent;
-  --site-link-hover-background: var(--site-banner-background);
-  --site-link-padding-end: 0.08em;
-}
-
-/* Empty decorative pseudo-element: no extra screen-reader text. */
-a.external::after {
+/* Shared marker for internal and external content links.
+   Empty decorative pseudo-element: no extra screen-reader text. */
+#quarto-document-content a:any-link::after {
   content: "";
   display: var(--site-external-icon-display, none);
   width: 0.4em;
@@ -129,7 +123,7 @@ a.external::after {
   opacity: 0.85;
 }
 
-a.external:is(:hover, :focus-visible)::after {
+#quarto-document-content a:any-link:is(:hover, :focus-visible)::after {
   opacity: 1;
 }
 
