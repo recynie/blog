@@ -35,6 +35,7 @@ format:
     theme: zephyr
     css: styles/colors.css
     toc: true
+    link-external-icon: true
     html-math-method: mathjax
     include-in-header:
       - includes/mathjax.html

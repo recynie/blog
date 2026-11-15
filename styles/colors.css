@@ -3,6 +3,9 @@
   --site-banner-background: #eef3f7;
   --site-header-background: #dce5ed;
   --site-header-foreground: #172b3d;
+  --site-link-background: var(--site-banner-background);
+  --site-link-hover-background: var(--site-header-background);
+  --site-link-icon-color: #607f98;
 }
 
 #quarto-header .navbar {
@@ -26,6 +29,68 @@
   --bs-navbar-brand-color: var(--site-header-foreground);
   --bs-navbar-brand-hover-color: #000;
   color: var(--site-header-foreground);
+}
+
+/* Default for content links, including captions, headings and custom layouts.
+   Keep navigation, metadata, controls and linked media in their own styles. */
+#quarto-document-content a:any-link:not(:where(
+  #title-block-header *, .quarto-listing *, nav *, .nav *,
+  [role="navigation"] *, [role="tablist"] *,
+  .footnote-ref, .footnote-back, .anchorjs-link, .btn, .page-link,
+  [role="button"], [role="tab"], .about-link, .snow-enter,
+  .quarto-navigation-tool, .code-copy-button, .code-annotation-anchor,
+  .sourceCode *, .html-widget *, .plotly *, .leaflet-container *,
+  .glightbox, [data-gallery]
+)):not(:has(img, svg, picture, video, canvas)) {
+  --site-external-icon-display: inline-block;
+  color: inherit;
+  background-color: var(--site-link-background);
+  text-decoration: none;
+  padding-inline: 0.16em var(--site-link-padding-end, 0.16em);
+  border-radius: 2px;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+#quarto-document-content a:any-link:not(:where(
+  #title-block-header *, .quarto-listing *, nav *, .nav *,
+  [role="navigation"] *, [role="tablist"] *,
+  .footnote-ref, .footnote-back, .anchorjs-link, .btn, .page-link,
+  [role="button"], [role="tab"], .about-link, .snow-enter,
+  .quarto-navigation-tool, .code-copy-button, .code-annotation-anchor,
+  .sourceCode *, .html-widget *, .plotly *, .leaflet-container *,
+  .glightbox, [data-gallery]
+)):not(:has(img, svg, picture, video, canvas)):is(:hover, :focus-visible) {
+  background-color: var(--site-link-hover-background);
+}
+
+/* The external arrow already provides separation on the right. */
+a.external {
+  --site-link-padding-end: 0.08em;
+}
+
+/* Empty decorative pseudo-element: no extra screen-reader text. */
+a.external::after {
+  content: "";
+  display: var(--site-external-icon-display, none);
+  width: 0.55em;
+  height: 0.55em;
+  margin-left: 0.12em;
+  vertical-align: super;
+  padding: 0;
+  background-image: none;
+  background-color: var(--site-link-icon-color);
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 12 12 4M4 4h8v8' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+  opacity: 0.85;
+}
+
+a.external:is(:hover, :focus-visible)::after {
+  opacity: 1;
+}
+
+#quarto-document-content a:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
 }
 
 .quarto-title-banner,
