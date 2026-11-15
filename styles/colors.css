@@ -7,6 +7,8 @@
   --site-link-hover-background: var(--site-header-background);
   --site-link-icon-color: #326ba8;
   --site-code-foreground: #344d60;
+  --site-navigation-link-color: #265180;
+  --site-navigation-link-hover-color: #326ba8;
 }
 
 #quarto-header .navbar {
@@ -30,6 +32,25 @@
   --bs-navbar-brand-color: var(--site-header-foreground);
   --bs-navbar-brand-hover-color: #000;
   color: var(--site-header-foreground);
+}
+
+/* Functional article links share a muted blue, separate from prose links. */
+#quarto-document-content :is(.anchorjs-link, .footnote-ref, .footnote-back) {
+  color: var(--site-navigation-link-color);
+}
+
+#quarto-document-content :is(.anchorjs-link, .footnote-ref, .footnote-back):is(:hover, :focus-visible) {
+  color: var(--site-navigation-link-hover-color);
+}
+
+/* Quarto's active/hover TOC colors use !important in the theme. */
+#TOC a.active {
+  color: var(--site-navigation-link-color) !important;
+  border-left-color: var(--site-navigation-link-color);
+}
+
+#TOC a:is(:hover, :focus-visible) {
+  color: var(--site-navigation-link-hover-color) !important;
 }
 
 /* Keep emphasis weight and code typography; only harmonize their colors. */
